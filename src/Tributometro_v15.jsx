@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, createContext, useContext } from "react";
 import { jsPDF } from "jspdf";
+import rumoLogo from "./assets/rumo-logo.png";
 
 const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');`;
 
@@ -1577,7 +1578,7 @@ export default function App(){
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 16px",height:48}}>
             <div style={{display:"flex",alignItems:"center"}}>
               <div style={{display:"flex",alignItems:"center",gap:8,paddingRight:20,borderRight:"1px solid "+C.border}}>
-                <div style={{background:C.brand,color:"#fff",fontFamily:F.sans,fontWeight:600,fontSize:13,letterSpacing:2,padding:"3px 10px",borderRadius:2}}>RUMO</div>
+                <img src={rumoLogo} alt="Rumo Brasil" style={{height:32,width:"auto",objectFit:"contain"}}/>
                 <span style={{fontFamily:F.sans,fontSize:12,color:C.text2}}>Simulador TRC</span>
               </div>
               {!isMob&&TABS.map(t=>(
