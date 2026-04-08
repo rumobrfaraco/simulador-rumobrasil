@@ -807,173 +807,238 @@ function Oracle(){
     {p:"Grande TRC", frete:400000,frota:120,regime:"Lucro Real",fp:50,ft:35,fa:15,mA:10,mS:50,mL:40,exp:10,cor:C.green},
   ];
 
-  const gerarPDF = () => {
-    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-    const W = 210; const mg = 16; const cw = W - mg * 2;
-    let y = mg;
-    const BRL = (v) => "R$ " + Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-    const pct = (v) => Number(v).toFixed(2) + "%";
+  const gerarPDF = async () => {
+    const W = 210, H = 297, mg = 16, cw = W - mg * 2;
+    const OR = [255, 130, 0];
+    const DK = [30, 30, 45];
+    const GR = [110, 110, 128];
+    const LG = [165, 165, 182];
+    const BG = [247, 247, 250];
+    const BD = [222, 222, 232];
 
-    // Header
-    doc.setFillColor(255, 130, 0);
-    doc.rect(0, 0, W, 22, "F");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.setTextColor(255, 255, 255);
-    doc.text("Simulador Reforma Tributária — TRC", mg, 10);
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    doc.text("CBS + IBS — LC 214/2025 | Rumo Brasil", mg, 16);
-    doc.text(new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }), W - mg, 16, { align: "right" });
-    y = 30;
+    const BRL = v => "R$ " + Number(v).toLocaleString("pt-BR", {maximumFractionDigits:0});
+    const Pct = v => Number(v).toFixed(1) + "%";
 
-    // Parâmetros da simulação
-    doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(100, 100, 120);
-    doc.text("PARÂMETROS DA SIMULAÇÃO", mg, y); y += 5;
-    doc.setDrawColor(220, 220, 232); doc.line(mg, y, W - mg, y); y += 5;
-
-    const params = [
-      ["Faturamento mensal", BRL(frete)],
-      ["Frota", frota + " veículos"],
-      ["Regime tributário", regime],
-      ["Ano simulado", String(ano)],
-      ["Exportação", pctExportacao + "%"],
-      ["CBS", m.cbs + "%"],
-      ["IBS", m.ibs > 0 ? m.ibs + "%" : "—"],
-    ];
-    doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(40, 40, 60);
-    params.forEach(([k, v]) => {
-      doc.text(k, mg, y); doc.setFont("helvetica", "bold"); doc.text(v, mg + 80, y); doc.setFont("helvetica", "normal"); y += 5;
-    });
-    y += 3;
-
-    // Composição operacional
-    doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(100, 100, 120);
-    doc.text("COMPOSIÇÃO OPERACIONAL", mg, y); y += 5;
-    doc.setDrawColor(220, 220, 232); doc.line(mg, y, W - mg, y); y += 5;
-    doc.setFont("helvetica", "normal"); doc.setTextColor(40, 40, 60);
-    if (usaFrota)      { doc.text("Frota Própria", mg, y);  doc.setFont("helvetica","bold"); doc.text(pctFrota + "%", mg + 80, y);  doc.setFont("helvetica","normal"); y += 5; }
-    if (usaTerceiros)  { doc.text("Terceiros (mix: " + mixAutonomo + "% aut. / " + mixSN + "% SN / " + mixLucro + "% LP-LR)", mg, y); doc.setFont("helvetica","bold"); doc.text(pctTerceiros + "%", mg + 80, y); doc.setFont("helvetica","normal"); y += 5; }
-    if (usaAgregados)  { doc.text("Agregados (" + regimeAgregado + ")", mg, y); doc.setFont("helvetica","bold"); doc.text(pctAgregados + "%", mg + 80, y); doc.setFont("helvetica","normal"); y += 5; }
-    y += 3;
-
-    // Apuração CBS
-    doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(100, 100, 120);
-    doc.text("APURAÇÃO CBS — " + m.cbs + "%", mg, y); y += 5;
-    doc.setDrawColor(220, 220, 232); doc.line(mg, y, W - mg, y); y += 5;
-    doc.setFont("helvetica", "normal"); doc.setTextColor(40, 40, 60);
-
-    const cbsRows = [
-      ["Débito CBS", BRL(reforma.cbsDebito), true],
-      ...(usaFrota ? [["(-) Crédito CBS frota", BRL(reforma.creditoCBS_frota), false]] : []),
-      ...(usaTerceiros ? [["(-) Crédito CBS terceiros", BRL(reforma.creditoCBS_terceiros), false]] : []),
-      ...(usaAgregados ? [["(-) Crédito CBS agregados", BRL(reforma.creditoCBS_agregados), false]] : []),
-      ["= CBS a recolher", BRL(reforma.cbsRecolher), true],
-    ];
-    cbsRows.forEach(([k, v, bold]) => {
-      if (bold) doc.setFont("helvetica", "bold"); else doc.setFont("helvetica", "normal");
-      doc.text(k, mg, y); doc.text(v, W - mg, y, { align: "right" }); y += 5;
-    });
-    y += 3;
-
-    // Apuração IBS
-    if (m.ibs > 0) {
-      doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(100, 100, 120);
-      doc.text("APURAÇÃO IBS — " + m.ibs + "%", mg, y); y += 5;
-      doc.setDrawColor(220, 220, 232); doc.line(mg, y, W - mg, y); y += 5;
-      doc.setFont("helvetica", "normal"); doc.setTextColor(40, 40, 60);
-      const ibsRows = [
-        ["Débito IBS", BRL(reforma.ibsDebito), true],
-        ...(usaFrota ? [["(-) Crédito IBS frota", BRL(reforma.creditoIBS_frota), false]] : []),
-        ...(usaTerceiros ? [["(-) Crédito IBS terceiros", BRL(reforma.creditoIBS_terceiros), false]] : []),
-        ...(usaAgregados ? [["(-) Crédito IBS agregados", BRL(reforma.creditoIBS_agregados), false]] : []),
-        ["= IBS a recolher", BRL(reforma.ibsRecolher), true],
-      ];
-      ibsRows.forEach(([k, v, bold]) => {
-        if (bold) doc.setFont("helvetica", "bold"); else doc.setFont("helvetica", "normal");
-        doc.text(k, mg, y); doc.text(v, W - mg, y, { align: "right" }); y += 5;
+    // Carrega logo como base64
+    let logoDataUrl = null;
+    try {
+      const resp = await fetch(rumoLogo);
+      const blob = await resp.blob();
+      logoDataUrl = await new Promise(res => {
+        const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob);
       });
-      y += 3;
+    } catch(_) {}
+
+    const doc = new jsPDF({orientation:"portrait", unit:"mm", format:"a4"});
+
+    // ── Moldura de página (chamada a cada nova página) ──
+    const drawFrame = () => {
+      doc.setFillColor(...OR);
+      doc.rect(0, 0, W, 3.5, "F");       // barra laranja topo
+      doc.setFillColor(...OR);
+      doc.rect(0, H - 3, W, 3, "F");     // barra laranja rodapé
+    };
+
+    drawFrame();
+
+    // ── Cabeçalho ──
+    const logoSz = 24;
+    if (logoDataUrl) doc.addImage(logoDataUrl, "PNG", mg, 7, logoSz, logoSz);
+
+    const tx = mg + logoSz + 10;
+    doc.setFont("helvetica", "bold"); doc.setFontSize(17); doc.setTextColor(...DK);
+    doc.text("Análise de Impacto Tributário", tx, 15);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(...OR);
+    doc.text("Reforma Tributária · CBS + IBS", tx, 22);
+    doc.setFontSize(8); doc.setTextColor(...GR);
+    doc.text("Lei Complementar 214/2025  ·  Simulação: " + m.ano + " — " + m.label, tx, 27.5);
+    doc.text("Gerado em " + new Date().toLocaleDateString("pt-BR", {day:"2-digit", month:"long", year:"numeric"}), tx, 32.5);
+
+    // Linha divisória do cabeçalho
+    doc.setDrawColor(...BD); doc.setLineWidth(0.4);
+    doc.line(mg, 37, W - mg, 37);
+
+    let y = 46;
+
+    // ── Helpers ──
+    const section = (title) => {
+      doc.setFillColor(...OR);
+      doc.rect(mg, y, 2.5, 7, "F");
+      doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(...GR);
+      doc.text(title.toUpperCase(), mg + 5, y + 5);
+      y += 10;
+      doc.setDrawColor(...BD); doc.setLineWidth(0.25);
+      doc.line(mg + 5, y - 1, W - mg, y - 1);
+      y += 4;
+    };
+
+    const dataRow = (label, value, valueColor = DK) => {
+      doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(...GR);
+      doc.text(label, mg + 5, y);
+      doc.setFont("helvetica","bold"); doc.setFontSize(8.5); doc.setTextColor(...valueColor);
+      doc.text(value, W - mg, y, {align:"right"});
+      y += 5.5;
+    };
+
+    const subtotalBar = (label, value) => {
+      doc.setFillColor(...BG);
+      doc.rect(mg + 5, y, cw - 5, 7, "F");
+      doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(...DK);
+      doc.text(label, mg + 8, y + 5);
+      doc.setTextColor(...OR);
+      doc.text(value, W - mg - 2, y + 5, {align:"right"});
+      y += 10;
+    };
+
+    // ── Seção 1: Perfil Tributário ──
+    section("Perfil Tributário");
+    const col2 = W / 2 + 4;
+    // linha 1
+    doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...LG);
+    doc.text("Receita Bruta de Frete (mensal)", mg + 5, y);
+    doc.text("Frota de Veículos", col2, y);
+    y += 4;
+    doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(...DK);
+    doc.text(BRL(frete), mg + 5, y);
+    doc.text(frota + " veículos", col2, y);
+    y += 7;
+    // linha 2
+    doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...LG);
+    doc.text("Enquadramento Tributário", mg + 5, y);
+    doc.text("Exportações (isento CBS/IBS)", col2, y);
+    y += 4;
+    doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(...DK);
+    doc.text(regime, mg + 5, y);
+    doc.text(pctExportacao + "% da receita", col2, y);
+    y += 10;
+
+    // ── Seção 2: Estrutura Operacional ──
+    section("Estrutura Operacional");
+    if (usaFrota)     dataRow("Frota Própria", pctFrota + "% da receita");
+    if (usaTerceiros) dataRow("Terceiros / Subcontratados · " + mixAutonomo + "% aut. · " + mixSN + "% SN · " + mixLucro + "% LP/LR", pctTerceiros + "% da receita");
+    if (usaAgregados) dataRow("Agregados (" + regimeAgregado + ")", pctAgregados + "% da receita");
+    y += 4;
+
+    // ── Seção 3: Apuração Tributária ──
+    section("Apuração Tributária — " + m.ano);
+
+    // CBS
+    doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(...OR);
+    doc.text("Contribuição sobre Bens e Serviços (CBS) — " + m.cbs + "%", mg + 5, y); y += 6;
+    dataRow("Incidência CBS sobre a receita tributável", BRL(reforma.cbsDebito));
+    if (usaFrota)     dataRow("  (-) Créditos — frota própria", BRL(reforma.creditoCBS_frota));
+    if (usaTerceiros) dataRow("  (-) Créditos — subcontratados", BRL(reforma.creditoCBS_terceiros));
+    if (usaAgregados) dataRow("  (-) Créditos — agregados", BRL(reforma.creditoCBS_agregados));
+    subtotalBar("CBS a Recolher", BRL(reforma.cbsRecolher));
+
+    // IBS
+    if (m.ibs > 0) {
+      doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(...OR);
+      doc.text("Imposto sobre Bens e Serviços (IBS) — " + m.ibs + "%", mg + 5, y); y += 6;
+      dataRow("Incidência IBS sobre a receita tributável", BRL(reforma.ibsDebito));
+      if (usaFrota)     dataRow("  (-) Créditos — frota própria", BRL(reforma.creditoIBS_frota));
+      if (usaTerceiros) dataRow("  (-) Créditos — subcontratados", BRL(reforma.creditoIBS_terceiros));
+      if (usaAgregados) dataRow("  (-) Créditos — agregados", BRL(reforma.creditoIBS_agregados));
+      subtotalBar("IBS a Recolher", BRL(reforma.ibsRecolher));
     }
 
-    // Total
-    doc.setFillColor(255, 245, 230);
-    doc.roundedRect(mg, y, cw, 14, 2, 2, "F");
-    doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(255, 130, 0);
-    doc.text("TOTAL A RECOLHER / MÊS", mg + 4, y + 6);
-    doc.text(BRL(reforma.totalRecolher), W - mg - 4, y + 6, { align: "right" });
-    doc.setFontSize(8); doc.setTextColor(150, 100, 0);
-    doc.text(pct(pctCarga) + " do faturamento", W - mg - 4, y + 11, { align: "right" });
-    y += 20;
+    // ── Box Total ──
+    y += 2;
+    doc.setFillColor(255, 244, 229);
+    doc.setDrawColor(...OR); doc.setLineWidth(0.5);
+    doc.roundedRect(mg, y, cw, 17, 2, 2, "FD");
+    doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(...DK);
+    doc.text("Tributo Estimado a Recolher / mês", mg + 5, y + 7);
+    doc.setFontSize(15); doc.setTextColor(...OR);
+    doc.text(BRL(reforma.totalRecolher), W - mg - 4, y + 7, {align:"right"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(...GR);
+    doc.text(Pct(pctCarga) + " da receita bruta", W - mg - 4, y + 13, {align:"right"});
+    y += 23;
 
-    // KPIs
-    doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(100, 100, 120);
-    doc.text("INDICADORES", mg, y); y += 5;
-    doc.setDrawColor(220, 220, 232); doc.line(mg, y, W - mg, y); y += 5;
-    doc.setFont("helvetica", "normal"); doc.setTextColor(40, 40, 60);
-    const kpis = [
-      ["Débito total (CBS + IBS)", BRL(reforma.cbsDebito + reforma.ibsDebito)],
-      ["Crédito total", BRL(reforma.totalCreditoCBS + reforma.totalCreditoIBS)],
-      ["Impacto anual estimado", BRL(reforma.totalRecolher * 12)],
-      ["Carga efetiva sobre faturamento", pct(pctCarga)],
-    ];
-    kpis.forEach(([k, v]) => {
-      doc.text(k, mg, y); doc.setFont("helvetica","bold"); doc.text(v, W - mg, y, { align: "right" }); doc.setFont("helvetica","normal"); y += 5;
+    // ── KPIs 3 boxes ──
+    const bxW = (cw - 6) / 3;
+    [
+      {l:"Incidência total (CBS + IBS)", v:BRL(reforma.cbsDebito + reforma.ibsDebito), s:"débito bruto"},
+      {l:"Créditos recuperados", v:BRL(reforma.totalCreditoCBS + reforma.totalCreditoIBS), s:"não-cumulatividade"},
+      {l:"Impacto anual estimado", v:BRL(reforma.totalRecolher * 12), s:"12 meses projetados"},
+    ].forEach((k, i) => {
+      const bx = mg + i * (bxW + 3);
+      doc.setFillColor(...BG); doc.setDrawColor(...BD); doc.setLineWidth(0.25);
+      doc.rect(bx, y, bxW, 17, "FD");
+      doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(...LG);
+      doc.text(k.l, bx + 3, y + 5);
+      doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(...DK);
+      doc.text(k.v, bx + 3, y + 12);
+      doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(...LG);
+      doc.text(k.s, bx + 3, y + 16);
     });
-    y += 3;
+    y += 23;
 
-    // Projeção 2027-2033
-    doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(100, 100, 120);
-    doc.text("PROJEÇÃO 2027–2033", mg, y); y += 5;
-    doc.setDrawColor(220, 220, 232); doc.line(mg, y, W - mg, y); y += 5;
-    doc.setFont("helvetica", "normal"); doc.setTextColor(40, 40, 60);
-    const bW = cw / MILES.length;
+    // ── Seção 4: Projeção ──
+    if (y > 215) { doc.addPage(); drawFrame(); y = 46; }
+    section("Projeção do Tributo Líquido — 2027 a 2033");
+
     const vals = MILES.map(mi => calcTot(mi));
     const maxV = Math.max(...vals, 1);
-    const barH = 20;
+    const barH = 26, bW2 = cw / MILES.length;
+
     MILES.forEach((mi, i) => {
-      const h = Math.max(1, (vals[i] / maxV) * barH);
-      const bx = mg + i * bW;
+      const h = Math.max(1.5, (vals[i] / maxV) * barH);
+      const bx = mg + i * bW2;
       const active = mi.ano === ano;
-      doc.setFillColor(active ? 255 : 200, active ? 130 : 200, active ? 0 : 200);
-      doc.rect(bx + 1, y + barH - h, bW - 2, h, "F");
-      doc.setFontSize(6); doc.setTextColor(80, 80, 100);
-      doc.text(String(mi.ano), bx + bW / 2, y + barH + 4, { align: "center" });
-      const label = vals[i] < 1000 ? String(Math.round(vals[i])) : (vals[i] / 1000).toFixed(1) + "k";
-      doc.text(label, bx + bW / 2, y + barH - h - 1, { align: "center" });
+      doc.setFillColor(active ? OR[0] : 210, active ? OR[1] : 210, active ? OR[2] : 220);
+      doc.rect(bx + 1.5, y + barH - h, bW2 - 3, h, "F");
+      doc.setFont("helvetica", active ? "bold" : "normal");
+      doc.setFontSize(6.5);
+      doc.setTextColor(active ? OR[0] : GR[0], active ? OR[1] : GR[1], active ? OR[2] : GR[2]);
+      const lbl = vals[i] < 1000 ? "R$"+Math.round(vals[i]) : "R$"+(vals[i]/1000).toFixed(1)+"k";
+      doc.text(lbl, bx + bW2/2, y + barH - h - 1.5, {align:"center"});
+      doc.text(String(mi.ano), bx + bW2/2, y + barH + 5, {align:"center"});
     });
-    y += barH + 10;
+    y += barH + 12;
 
-    // Insights
-    if (y > 240) { doc.addPage(); y = mg; }
-    doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(100, 100, 120);
-    doc.text("INSIGHTS DA SIMULAÇÃO", mg, y); y += 5;
-    doc.setDrawColor(220, 220, 232); doc.line(mg, y, W - mg, y); y += 5;
+    // ── Seção 5: Análise e Recomendações ──
+    if (y > 235) { doc.addPage(); drawFrame(); y = 46; }
+    section("Análise e Recomendações");
 
-    const insights = [];
-    if (regime === "Simples Nacional") insights.push({ titulo: "Simples Nacional — sem créditos", texto: `No SN, o tomador não apropria crédito de CBS/IBS. Carga efetiva: ${pct(pctCarga)} do faturamento.` });
-    if (usaFrota && reforma.creditoCBS_frota + reforma.creditoIBS_frota > 0) insights.push({ titulo: "Frota própria: créditos sobre insumos", texto: `Créditos CBS+IBS da frota: ${BRL(reforma.creditoCBS_frota + reforma.creditoIBS_frota)}/mês. ${Object.values(insumosAtivos).filter(Boolean).length} insumos gerando crédito.` });
-    if (usaTerceiros) { const cbsMedio = calcCBSCredito(mixAutonomo, mixSN, mixLucro); insights.push({ titulo: `Terceiros — crédito CBS médio ${cbsMedio.toFixed(2)}%`, texto: `Mix: ${mixAutonomo}% autônomo, ${mixSN}% SN, ${mixLucro}% LP/LR.` }); }
-    if (pctExportacao > 0) insights.push({ titulo: `Exportação: ${pctExportacao}% isento`, texto: "Receitas de exportação são isentas de CBS/IBS. Créditos sobre insumos são mantidos — gera acúmulo restituível." });
-    if (compTotal !== 100 && compTotal > 0) insights.push({ titulo: "Atenção: composição operacional incorreta", texto: `Soma frota + terceiros + agregados = ${compTotal}%. Ajuste para 100% para simulação precisa.` });
-    if (insights.length === 0) insights.push({ titulo: "Simulação configurada", texto: "Configure frota própria, terceiros ou agregados para ver os créditos detalhados." });
+    const recs = [];
+    if (regime === "Simples Nacional")
+      recs.push({t:"Atenção: Simples Nacional não aproveita créditos tributários",
+        d:`No Simples Nacional, o tomador de serviços não pode se creditar de CBS e IBS. A carga tributária efetiva é de ${Pct(pctCarga)} sobre a receita, sem possibilidade de recuperação via créditos.`});
+    if (usaFrota && reforma.creditoCBS_frota + reforma.creditoIBS_frota > 0)
+      recs.push({t:"Frota própria: créditos plenos sobre insumos operacionais",
+        d:`A frota própria gera ${BRL(reforma.creditoCBS_frota + reforma.creditoIBS_frota)}/mês em créditos de CBS e IBS sobre ${Object.values(insumosAtivos).filter(Boolean).length} insumos (diesel, pneus, peças, manutenção, pedágios). Recomenda-se mapear e ampliar o aproveitamento de insumos.`});
+    if (usaTerceiros) {
+      const cbsM = calcCBSCredito(mixAutonomo, mixSN, mixLucro);
+      recs.push({t:`Subcontratados: crédito CBS médio de ${cbsM.toFixed(2)}%`,
+        d:`Composição atual: ${mixAutonomo}% autônomos · ${mixSN}% Simples Nacional · ${mixLucro}% Lucro Presumido/Real. ${mixLucro < 30 ? "Ampliar a participação de prestadores no Lucro Presumido ou Real pode elevar significativamente os créditos recuperados." : "A composição está equilibrada para aproveitamento de créditos."}`});
+    }
+    if (pctExportacao > 0)
+      recs.push({t:`Exportações: ${pctExportacao}% da receita com imunidade tributária`,
+        d:"Receitas de exportação são isentas de CBS e IBS. Os créditos sobre insumos dessas operações são mantidos e podem ser ressarcidos, gerando caixa adicional."});
+    recs.push({t:"Próximos passos: adequação à Reforma Tributária",
+      d:"Atualização dos layouts de CT-e e NF-e para os campos CBS/IBS (obrigatório a partir de 2027), certificação do TMS/ERP e revisão de contratos com cláusula de reajuste tributário. A Rumo Brasil está disponível para apoiar essa transição."});
 
-    doc.setFont("helvetica", "normal"); doc.setTextColor(40, 40, 60); doc.setFontSize(9);
-    insights.forEach(ins => {
-      if (y > 270) { doc.addPage(); y = mg; }
-      doc.setFont("helvetica", "bold"); doc.text("• " + ins.titulo, mg, y); y += 5;
-      doc.setFont("helvetica", "normal");
-      const lines = doc.splitTextToSize(ins.texto, cw - 4);
-      lines.forEach(l => { doc.text(l, mg + 4, y); y += 4; });
-      y += 3;
+    recs.forEach(r => {
+      if (y > 262) { doc.addPage(); drawFrame(); y = 46; }
+      doc.setFillColor(...OR);
+      doc.circle(mg + 3, y, 1.2, "F");
+      doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(...DK);
+      doc.splitTextToSize(r.t, cw - 10).forEach(l => { doc.text(l, mg + 7, y); y += 4.8; });
+      doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(...GR);
+      doc.splitTextToSize(r.d, cw - 10).forEach(l => { doc.text(l, mg + 7, y); y += 4.3; });
+      y += 5;
     });
 
-    // Rodapé
-    doc.setFontSize(7); doc.setTextColor(160, 160, 180);
-    doc.text("Simulador Reforma Tributária — Rumo Brasil | Gerado em " + new Date().toLocaleDateString("pt-BR"), W / 2, 290, { align: "center" });
-    doc.text("Documento informativo. Consulte um especialista tributário para decisões.", W / 2, 294, { align: "center" });
+    // ── Disclaimer ──
+    if (y > 268) { doc.addPage(); drawFrame(); y = 46; }
+    y += 3;
+    doc.setDrawColor(...BD); doc.setLineWidth(0.25); doc.line(mg, y, W - mg, y); y += 5;
+    doc.setFont("helvetica","italic"); doc.setFontSize(7); doc.setTextColor(...LG);
+    doc.splitTextToSize("Este documento é de caráter informativo e não substitui uma consulta tributária especializada. Os valores são estimativas baseadas nos parâmetros informados e nas alíquotas previstas na LC 214/2025.", cw)
+      .forEach(l => { doc.text(l, mg, y); y += 3.8; });
 
-    doc.save("simulacao-reforma-tributaria-" + ano + ".pdf");
+    doc.save("RumoBrasil_Analise-Tributaria_" + m.ano + "_" + new Date().toISOString().slice(0,10) + ".pdf");
   };
 
   return(
@@ -988,9 +1053,9 @@ function Oracle(){
         </div>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <span style={{fontFamily:F.sans,fontSize:10,color:C.text2}}>Somente Reforma Tributária (a partir de 2027)</span>
-          <button onClick={gerarPDF}
-            style={{display:"flex",alignItems:"center",gap:5,border:"1px solid "+C.brand+"44",background:C.brand,color:"#fff",borderRadius:2,padding:"5px 12px",cursor:"pointer",fontFamily:F.sans,fontSize:10,fontWeight:600,transition:"opacity 0.12s"}}>
-            📄 Gerar PDF
+          <button onClick={()=>gerarPDF()}
+            style={{display:"flex",alignItems:"center",gap:5,border:"none",background:C.brand,color:"#fff",borderRadius:2,padding:"5px 12px",cursor:"pointer",fontFamily:F.sans,fontSize:10,fontWeight:600,letterSpacing:0.3}}>
+            ↓ Exportar PDF
           </button>
         </div>
       </div>
