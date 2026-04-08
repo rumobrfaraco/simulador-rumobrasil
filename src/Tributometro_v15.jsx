@@ -1565,32 +1565,39 @@ function Oracle(){
             </div>
             {(()=>{
               const ativas = DESPESAS_SEM_CREDITO.filter(d=>despesasSCAtivas[d.id]);
+              if (!ativas.length) return null;
               const totalSC = ativas.reduce((s,d)=>s+(frete*(despesasSCCusto[d.id]||0)/100),0);
               const totalPct = ativas.reduce((s,d)=>s+(despesasSCCusto[d.id]||0),0);
-              const alerta = totalPct > 80;
-              return ativas.length > 0 ? (
-                <div style={{marginTop:8,border:"1px solid "+C.red+"33",borderTop:"3px solid "+C.red}}>
-                  {ativas.map((d,i)=>(
-                    <div key={d.id} style={{display:"flex",justifyContent:"space-between",padding:"4px 10px",borderBottom:"1px solid "+C.border}}>
-                      <span style={{fontFamily:F.sans,fontSize:10,color:C.text2}}>{d.nome}</span>
-                      <div style={{display:"flex",gap:12,alignItems:"center"}}>
-                        <span style={{fontFamily:F.mono,fontSize:9,color:C.text3}}>{(despesasSCCusto[d.id]||0).toFixed(1)}%</span>
-                        <span style={{fontFamily:F.mono,fontSize:10,color:C.red}}>R$ {(frete*(despesasSCCusto[d.id]||0)/100).toLocaleString("pt-BR",{maximumFractionDigits:0})}</span>
-                      </div>
-                    </div>
-                  ))}
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",background:alerta?C.redLt:"transparent"}}>
-                    <div>
-                      <span style={{fontFamily:F.sans,fontSize:10,color:C.red,fontWeight:600}}>Total despesas sem crédito</span>
-                      {alerta && <span style={{fontFamily:F.sans,fontSize:8,color:C.red,marginLeft:6}}>⚠️ revise os valores</span>}
-                    </div>
+              return (
+                <div style={{marginTop:12}}>
+                  <SL right={<Bdg color={C.red}>SEM CRÉDITO</Bdg>}>Despesas sem crédito apuradas</SL>
+                  <table style={{width:"100%",borderCollapse:"collapse"}}>
+                    <thead>
+                      <tr style={{borderBottom:"1px solid "+C.border}}>
+                        {["Despesa","% fat.","Custo/mês"].map(h=>(
+                          <th key={h} style={{fontFamily:F.sans,fontSize:9,color:C.text2,padding:"4px 0",textAlign:"left",fontWeight:400}}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ativas.map((d,i)=>(
+                        <tr key={i} style={{borderBottom:"1px solid "+C.border}}>
+                          <td style={{fontFamily:F.sans,fontSize:10,color:C.text2,padding:"5px 0"}}>{d.nome}</td>
+                          <td style={{fontFamily:F.mono,fontSize:10,color:C.text3}}>{(despesasSCCusto[d.id]||0).toFixed(1)}%</td>
+                          <td style={{fontFamily:F.mono,fontSize:10,color:C.red}}>R$ {(frete*(despesasSCCusto[d.id]||0)/100).toLocaleString("pt-BR",{maximumFractionDigits:0})}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div style={{marginTop:6,padding:"6px 10px",background:C.redLt,border:"1px solid "+C.red+"33",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <span style={{fontFamily:F.sans,fontSize:10,color:C.red,fontWeight:500}}>Total despesas sem crédito</span>
                     <div style={{textAlign:"right"}}>
-                      <div style={{fontFamily:F.mono,fontSize:12,color:C.red,fontWeight:700}}>R$ {totalSC.toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês</div>
-                      <div style={{fontFamily:F.mono,fontSize:9,color:C.text3}}>{totalPct.toFixed(1)}% do faturamento</div>
+                      <div style={{fontFamily:F.mono,fontSize:11,color:C.red,fontWeight:600}}>R$ {totalSC.toLocaleString("pt-BR",{maximumFractionDigits:0})}</div>
+                      <div style={{fontFamily:F.mono,fontSize:8,color:C.text3}}>{totalPct.toFixed(1)}% do faturamento</div>
                     </div>
                   </div>
                 </div>
-              ) : null;
+              );
             })()}
           </div>
 
