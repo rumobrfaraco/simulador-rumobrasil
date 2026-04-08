@@ -52,6 +52,15 @@ const INSUMOS_FROTA = [
   {id:"pneus",     nome:"Pneus e recapagens",    descricao:"Pneus novos + recapagens",            pctCustoDefault:4},
   {id:"manutencao",nome:"Manutenção prev./corr.",descricao:"Oficinas, revisões, reparos",         pctCustoDefault:8},
   {id:"pedagios",  nome:"Pedágios",              descricao:"Valores pagos em praças de pedágio",  pctCustoDefault:3},
+  {id:"outras",    nome:"Outras Despesas Gerais",descricao:"Despesas que não se enquadram nos itens anteriores", pctCustoDefault:0},
+];
+
+// ── Despesas SEM direito a crédito CBS/IBS ──
+const DESPESAS_SEM_CREDITO = [
+  {id:"salarios",    nome:"Salários e Encargos Trabalhistas", descricao:"Folha de pagamento, FGTS, INSS patronal — não geram crédito CBS/IBS"},
+  {id:"seguros",     nome:"Seguros de carga / veículos",      descricao:"Seguros contratados com seguradoras — verificar nota fiscal emitida"},
+  {id:"financeiras", nome:"Despesas Financeiras",             descricao:"Juros, tarifas bancárias, leasing sem NF-e de serviços"},
+  {id:"outras_sc",   nome:"Outras Despesas Gerais",           descricao:"Demais despesas diversas sem direito a crédito CBS/IBS"},
 ];
 
 // ══ Cálculo Reforma Tributária (CBS+IBS) — SEM ICMS ══
@@ -60,7 +69,9 @@ function calcReforma({
   cbsAliq, ibsAliq,
   usaFrota, pctFrota, insumosAtivos, insumosCusto,
   usaTerceiros, pctTerceiros, mixAutonomo, mixSN, mixLucro,
+  insumosAtivosTerceiros, insumosCustoTerceiros,
   usaAgregados, pctAgregados, regimeAgregado,
+  insumosAtivosAgregados, insumosCustoAgregados,
 }) {
   const fexp = pctExportacao / 100;
   const aliqCBS = cbsAliq / 100;
@@ -80,6 +91,8 @@ function calcReforma({
 
   // Detalhamento dos insumos
   const detalheFrota = [];
+  const detalheTerceiros = [];
+  const detalheAgregados = [];
 
   // ── FROTA PRÓPRIA ──
   if (usaFrota && pctFrota > 0) {
@@ -107,6 +120,20 @@ function calcReforma({
     const cbsCredPct = calcCBSCredito(mixAutonomo, mixSN, mixLucro);
     creditoCBS_terceiros = baseTerceiros * (cbsCredPct / 100);
     creditoIBS_terceiros = baseTerceiros * aliqIBS;
+    // Insumos adicionais com crédito no segmento terceiros
+    if (insumosAtivosTerceiros) {
+      const baseTerInsumos = frete * (pctTerceiros / 100);
+      INSUMOS_FROTA.forEach(insumo => {
+        if (insumosAtivosTerceiros[insumo.id]) {
+          const custoInsumo = baseTerInsumos * (insumosCustoTerceiros[insumo.id] || 0) / 100;
+          const credCBS = custoInsumo * aliqCBS;
+          const credIBS = custoInsumo * aliqIBS;
+          creditoCBS_terceiros += credCBS;
+          creditoIBS_terceiros += credIBS;
+          detalheTerceiros.push({nome: insumo.nome, custo: custoInsumo, creditoCBS: credCBS, creditoIBS: credIBS});
+        }
+      });
+    }
   }
 
   // ── AGREGADOS ──
@@ -118,6 +145,20 @@ function calcReforma({
     else cbsCredAgregado = aliqCBS;
     creditoCBS_agregados = baseAgregados * cbsCredAgregado;
     creditoIBS_agregados = baseAgregados * aliqIBS;
+    // Insumos adicionais com crédito no segmento agregados
+    if (insumosAtivosAgregados) {
+      const baseAgInsumos = frete * (pctAgregados / 100);
+      INSUMOS_FROTA.forEach(insumo => {
+        if (insumosAtivosAgregados[insumo.id]) {
+          const custoInsumo = baseAgInsumos * (insumosCustoAgregados[insumo.id] || 0) / 100;
+          const credCBS = custoInsumo * aliqCBS;
+          const credIBS = custoInsumo * aliqIBS;
+          creditoCBS_agregados += credCBS;
+          creditoIBS_agregados += credIBS;
+          detalheAgregados.push({nome: insumo.nome, custo: custoInsumo, creditoCBS: credCBS, creditoIBS: credIBS});
+        }
+      });
+    }
   }
 
   // Simples Nacional não apropria crédito
@@ -145,6 +186,8 @@ function calcReforma({
     custoFrota: detalheFrota.reduce((s,d) => s + d.custo, 0),
     custoTerceiros: usaTerceiros ? frete * (pctTerceiros / 100) : 0,
     custoAgregados: usaAgregados ? frete * (pctAgregados / 100) : 0,
+    detalheTerceiros,
+    detalheAgregados,
   };
 }
 
@@ -251,6 +294,39 @@ function NInput({label,raw,setRaw,onBlur,prefix,suffix,hint}){
           style={{flex:1,padding:"8px 10px",background:"transparent",border:"none",outline:"none",fontFamily:F.mono,fontSize:13,color:C.text}}/>
         {suffix&&<span style={{fontFamily:F.mono,fontSize:11,color:C.text2,padding:"0 9px",borderLeft:"1px solid "+C.border,display:"flex",alignItems:"center"}}>{suffix}</span>}
       </div>
+    </div>
+  );
+}
+
+// ── Checkbox de despesa sem crédito ──
+function DespesaSCCheck({desp, ativo, pct, frete, onToggle, onPctChange}) {
+  const [rawPct, setRawPct] = useState(String(pct));
+  useEffect(() => setRawPct(String(pct)), [pct]);
+  const blur = () => {
+    const n = parseFloat(rawPct);
+    if (!isNaN(n) && n >= 0 && n <= 100) onPctChange(n);
+    else setRawPct(String(pct));
+  };
+  return (
+    <div style={{display:"flex",alignItems:"center",gap:8,padding:"6px 8px",background:ativo?"rgba(220,38,38,0.06)":C.bg2,border:"1px solid "+(ativo?C.red+"44":C.border),borderRadius:2,transition:"all 0.15s"}}>
+      <input type="checkbox" checked={ativo} onChange={onToggle}
+        style={{width:14,height:14,accentColor:C.red,cursor:"pointer",flexShrink:0}}/>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontFamily:F.sans,fontSize:10,color:ativo?C.text:C.text2,fontWeight:ativo?500:400}}>{desp.nome}</div>
+        <div style={{fontFamily:F.sans,fontSize:8,color:C.text3}}>{desp.descricao}</div>
+      </div>
+      {ativo && (
+        <div style={{display:"flex",alignItems:"center",gap:4,flexShrink:0}}>
+          <input type="text" inputMode="numeric" value={rawPct}
+            onChange={e=>setRawPct(e.target.value)} onBlur={blur}
+            onFocus={e=>e.target.select()} onKeyDown={e=>e.key==="Enter"&&blur()}
+            style={{width:40,padding:"3px 5px",background:C.bg1,border:"1px solid "+C.border,borderRadius:2,fontFamily:F.mono,fontSize:10,color:C.text,textAlign:"right",outline:"none"}}/>
+          <span style={{fontFamily:F.mono,fontSize:9,color:C.text3}}>%</span>
+          <span style={{fontFamily:F.mono,fontSize:9,color:C.red,flexShrink:0}}>
+            ≈ R$ {(frete*pct/100).toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -729,8 +805,11 @@ function Oracle(){
          insumosAtivos,setInsumosAtivos,insumosCusto,setInsumosCusto,
          usaTerceiros,setUsaTerceiros,pctTerceiros,setPctTerceiros,
          mixAutonomo,setMixAutonomo,mixSN,setMixSN,mixLucro,setMixLucro,
+         insumosAtivosTerceiros,setInsumosAtivosTerceiros,insumosCustoTerceiros,setInsumosCustoTerceiros,
          usaAgregados,setUsaAgregados,pctAgregados,setPctAgregados,
          regimeAgregado,setRegimeAgregado,
+         insumosAtivosAgregados,setInsumosAtivosAgregados,insumosCustoAgregados,setInsumosCustoAgregados,
+         despesasSCAtivas,setDespesasSCAtivas,despesasSCCusto,setDespesasSCCusto,
          precoDiesel,setPrecoDiesel,isMob}=useApp();
 
   const [rf,setRf]=useState(frete.toLocaleString("pt-BR"));
@@ -775,6 +854,12 @@ function Oracle(){
   const setInsumoCusto = (id, v) => {
     setInsumosCusto((prev) => ({...prev, [id]: v}));
   };
+  const toggleInsumoTerceiros = (id) => setInsumosAtivosTerceiros(prev => ({...prev, [id]: !prev[id]}));
+  const setInsumoCustoTerceiros = (id, v) => setInsumosCustoTerceiros(prev => ({...prev, [id]: v}));
+  const toggleInsumoAgregados = (id) => setInsumosAtivosAgregados(prev => ({...prev, [id]: !prev[id]}));
+  const setInsumoCustoAgregados = (id, v) => setInsumosCustoAgregados(prev => ({...prev, [id]: v}));
+  const toggleDespesaSC = (id) => setDespesasSCAtivas(prev => ({...prev, [id]: !prev[id]}));
+  const setDespesaSCCusto = (id, v) => setDespesasSCCusto(prev => ({...prev, [id]: v}));
 
   // ═══ CÁLCULO ═══
   const reforma = calcReforma({
@@ -782,7 +867,9 @@ function Oracle(){
     cbsAliq: m.cbs, ibsAliq: m.ibs,
     usaFrota, pctFrota, insumosAtivos, insumosCusto,
     usaTerceiros, pctTerceiros, mixAutonomo, mixSN, mixLucro,
+    insumosAtivosTerceiros, insumosCustoTerceiros,
     usaAgregados, pctAgregados, regimeAgregado,
+    insumosAtivosAgregados, insumosCustoAgregados,
   });
 
   const calcTot=(mi)=>{
@@ -791,7 +878,9 @@ function Oracle(){
       cbsAliq: mi.cbs, ibsAliq: mi.ibs,
       usaFrota, pctFrota, insumosAtivos, insumosCusto,
       usaTerceiros, pctTerceiros, mixAutonomo, mixSN, mixLucro,
+      insumosAtivosTerceiros, insumosCustoTerceiros,
       usaAgregados, pctAgregados, regimeAgregado,
+      insumosAtivosAgregados, insumosCustoAgregados,
     }).totalRecolher;
   };
 
@@ -1313,6 +1402,47 @@ function Oracle(){
                       <span style={{fontFamily:F.sans,fontSize:10,color:C.amber,fontWeight:500}}>Total créditos terceiros</span>
                       <span style={{fontFamily:F.mono,fontSize:11,color:C.amber,fontWeight:600}}>R$ {(reforma.creditoCBS_terceiros+reforma.creditoIBS_terceiros).toLocaleString("pt-BR",{maximumFractionDigits:0})}</span>
                     </div>
+                    <D my={10}/>
+                    <SL right={<span style={{fontFamily:F.sans,fontSize:9,color:C.text3}}>Marque os que se aplicam</span>}>Insumos operacionais com direito a crédito CBS/IBS</SL>
+                    <div style={{marginBottom:6,fontFamily:F.sans,fontSize:9,color:C.text2}}>
+                      Custos diretos da transportadora neste segmento (base: R$ {(frete*pctTerceiros/100).toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês)
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                      {INSUMOS_FROTA.map(insumo=>(
+                        <InsumoCheck
+                          key={insumo.id}
+                          insumo={insumo}
+                          ativo={insumosAtivosTerceiros[insumo.id]||false}
+                          custo={insumosCustoTerceiros[insumo.id]||0}
+                          onToggle={()=>toggleInsumoTerceiros(insumo.id)}
+                          onCustoChange={(v)=>setInsumoCustoTerceiros(insumo.id,v)}
+                        />
+                      ))}
+                    </div>
+                    {reforma.detalheTerceiros.length > 0 && (
+                      <div style={{marginTop:10}}>
+                        <SL right={<Bdg color={C.green}>CRÉDITOS INSUMOS</Bdg>}>Créditos de insumos adicionais</SL>
+                        <table style={{width:"100%",borderCollapse:"collapse"}}>
+                          <thead>
+                            <tr style={{borderBottom:"1px solid "+C.border}}>
+                              {["Insumo","Custo/mês","Créd.CBS","Créd.IBS"].map(h=>(
+                                <th key={h} style={{fontFamily:F.sans,fontSize:9,color:C.text2,padding:"4px 0",textAlign:"left",fontWeight:400}}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {reforma.detalheTerceiros.map((d,i)=>(
+                              <tr key={i} style={{borderBottom:"1px solid "+C.border}}>
+                                <td style={{fontFamily:F.sans,fontSize:10,color:C.text2,padding:"5px 0"}}>{d.nome}</td>
+                                <td style={{fontFamily:F.mono,fontSize:10,color:C.text3}}>R$ {d.custo.toLocaleString("pt-BR",{maximumFractionDigits:0})}</td>
+                                <td style={{fontFamily:F.mono,fontSize:10,color:C.blue}}>R$ {d.creditoCBS.toLocaleString("pt-BR",{maximumFractionDigits:0})}</td>
+                                <td style={{fontFamily:F.mono,fontSize:10,color:C.purple}}>R$ {d.creditoIBS.toLocaleString("pt-BR",{maximumFractionDigits:0})}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
@@ -1359,8 +1489,86 @@ function Oracle(){
                       <span style={{fontFamily:F.sans,fontSize:10,color:C.green,fontWeight:500}}>Total créditos agregados</span>
                       <span style={{fontFamily:F.mono,fontSize:11,color:C.green,fontWeight:600}}>R$ {(reforma.creditoCBS_agregados+reforma.creditoIBS_agregados).toLocaleString("pt-BR",{maximumFractionDigits:0})}</span>
                     </div>
+                    {regimeAgregado === "Autônomo" && (
+                      <div style={{marginTop:8,padding:"8px 10px",background:C.amberLt,border:"1px solid "+C.amber+"44",borderLeft:"3px solid "+C.amber,borderRadius:2}}>
+                        <div style={{fontFamily:F.sans,fontSize:9,color:C.amber,fontWeight:600,marginBottom:3}}>⚠️ ATENÇÃO — Art. 47 LC 214/2025</div>
+                        <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,lineHeight:1.5}}>
+                          Para motoristas autônomos (TAC), o crédito CBS de 1,86% está condicionado ao <strong>recolhimento substituto</strong> previsto no Art. 47 da LC 214/2025, cuja regulamentação ainda está pendente. Caso as condições não sejam cumpridas, o crédito pode não existir.
+                        </div>
+                      </div>
+                    )}
+                    <D my={10}/>
+                    <SL right={<span style={{fontFamily:F.sans,fontSize:9,color:C.text3}}>Marque os que se aplicam</span>}>Insumos operacionais com direito a crédito CBS/IBS</SL>
+                    <div style={{marginBottom:6,fontFamily:F.sans,fontSize:9,color:C.text2}}>
+                      Custos diretos da transportadora neste segmento (base: R$ {(frete*pctAgregados/100).toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês)
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                      {INSUMOS_FROTA.map(insumo=>(
+                        <InsumoCheck
+                          key={insumo.id}
+                          insumo={insumo}
+                          ativo={insumosAtivosAgregados[insumo.id]||false}
+                          custo={insumosCustoAgregados[insumo.id]||0}
+                          onToggle={()=>toggleInsumoAgregados(insumo.id)}
+                          onCustoChange={(v)=>setInsumoCustoAgregados(insumo.id,v)}
+                        />
+                      ))}
+                    </div>
+                    {reforma.detalheAgregados.length > 0 && (
+                      <div style={{marginTop:10}}>
+                        <SL right={<Bdg color={C.green}>CRÉDITOS INSUMOS</Bdg>}>Créditos de insumos adicionais</SL>
+                        <table style={{width:"100%",borderCollapse:"collapse"}}>
+                          <thead>
+                            <tr style={{borderBottom:"1px solid "+C.border}}>
+                              {["Insumo","Custo/mês","Créd.CBS","Créd.IBS"].map(h=>(
+                                <th key={h} style={{fontFamily:F.sans,fontSize:9,color:C.text2,padding:"4px 0",textAlign:"left",fontWeight:400}}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {reforma.detalheAgregados.map((d,i)=>(
+                              <tr key={i} style={{borderBottom:"1px solid "+C.border}}>
+                                <td style={{fontFamily:F.sans,fontSize:10,color:C.text2,padding:"5px 0"}}>{d.nome}</td>
+                                <td style={{fontFamily:F.mono,fontSize:10,color:C.text3}}>R$ {d.custo.toLocaleString("pt-BR",{maximumFractionDigits:0})}</td>
+                                <td style={{fontFamily:F.mono,fontSize:10,color:C.blue}}>R$ {d.creditoCBS.toLocaleString("pt-BR",{maximumFractionDigits:0})}</td>
+                                <td style={{fontFamily:F.mono,fontSize:10,color:C.purple}}>R$ {d.creditoIBS.toLocaleString("pt-BR",{maximumFractionDigits:0})}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </>
                 )}
+              </div>
+            )}
+          </div>
+
+          {/* ═══ DESPESAS SEM DIREITO A CRÉDITO CBS/IBS ═══ */}
+          <div style={{background:C.bg1,padding:"14px 16px",borderTop:"1px solid "+C.border}}>
+            <SL right={<Bdg color={C.red}>SEM CRÉDITO</Bdg>}>Despesas sem direito a crédito CBS/IBS</SL>
+            <div style={{marginBottom:8,fontFamily:F.sans,fontSize:9,color:C.text2}}>
+              Custos que não geram crédito de CBS ou IBS, independente do regime — registre abaixo como % do faturamento mensal (R$ {frete.toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês).
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:4}}>
+              {DESPESAS_SEM_CREDITO.map(desp=>(
+                <DespesaSCCheck
+                  key={desp.id}
+                  desp={desp}
+                  ativo={despesasSCAtivas[desp.id]||false}
+                  pct={despesasSCCusto[desp.id]||0}
+                  frete={frete}
+                  onToggle={()=>toggleDespesaSC(desp.id)}
+                  onPctChange={(v)=>setDespesaSCCusto(desp.id,v)}
+                />
+              ))}
+            </div>
+            {DESPESAS_SEM_CREDITO.some(d=>despesasSCAtivas[d.id]) && (
+              <div style={{marginTop:8,padding:"7px 10px",background:C.redLt,border:"1px solid "+C.red+"33",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{fontFamily:F.sans,fontSize:10,color:C.red,fontWeight:500}}>Total despesas sem crédito</span>
+                <span style={{fontFamily:F.mono,fontSize:11,color:C.red,fontWeight:600}}>
+                  R$ {DESPESAS_SEM_CREDITO.filter(d=>despesasSCAtivas[d.id]).reduce((s,d)=>s+(frete*(despesasSCCusto[d.id]||0)/100),0).toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês
+                </span>
               </div>
             )}
           </div>
@@ -1583,11 +1791,31 @@ export default function App(){
   const [usaFrota,setUsaFrota]=useState(true);
   const [pctFrota,setPctFrota]=useState(60);
   const [insumosAtivos,setInsumosAtivos]=useState({
-    diesel:true, gasolina:false, gnv:false, pecas:true, pneus:true, manutencao:true, pedagios:true,
+    diesel:true, gasolina:false, gnv:false, pecas:true, pneus:true, manutencao:true, pedagios:true, outras:false,
   });
   const [insumosCusto,setInsumosCusto]=useState({
-    diesel:35, gasolina:3, gnv:0, pecas:5, pneus:4, manutencao:8, pedagios:3,
+    diesel:35, gasolina:3, gnv:0, pecas:5, pneus:4, manutencao:8, pedagios:3, outras:0,
   });
+
+  // Insumos terceiros (créditos adicionais por segmento)
+  const [insumosAtivosTerceiros,setInsumosAtivosTerceiros]=useState({
+    diesel:false, gasolina:false, gnv:false, pecas:false, pneus:false, manutencao:false, pedagios:false, outras:false,
+  });
+  const [insumosCustoTerceiros,setInsumosCustoTerceiros]=useState({
+    diesel:0, gasolina:0, gnv:0, pecas:0, pneus:0, manutencao:0, pedagios:0, outras:0,
+  });
+
+  // Insumos agregados (créditos adicionais por segmento)
+  const [insumosAtivosAgregados,setInsumosAtivosAgregados]=useState({
+    diesel:false, gasolina:false, gnv:false, pecas:false, pneus:false, manutencao:false, pedagios:false, outras:false,
+  });
+  const [insumosCustoAgregados,setInsumosCustoAgregados]=useState({
+    diesel:0, gasolina:0, gnv:0, pecas:0, pneus:0, manutencao:0, pedagios:0, outras:0,
+  });
+
+  // Despesas sem direito a crédito CBS/IBS
+  const [despesasSCAtivas,setDespesasSCAtivas]=useState({salarios:false, seguros:false, financeiras:false, outras_sc:false});
+  const [despesasSCCusto,setDespesasSCCusto]=useState({salarios:0, seguros:0, financeiras:0, outras_sc:0});
 
   // Terceiros
   const [usaTerceiros,setUsaTerceiros]=useState(true);
@@ -1615,8 +1843,11 @@ export default function App(){
     insumosAtivos,setInsumosAtivos,insumosCusto,setInsumosCusto,
     usaTerceiros,setUsaTerceiros,pctTerceiros,setPctTerceiros,
     mixAutonomo,setMixAutonomo,mixSN,setMixSN,mixLucro,setMixLucro,
+    insumosAtivosTerceiros,setInsumosAtivosTerceiros,insumosCustoTerceiros,setInsumosCustoTerceiros,
     usaAgregados,setUsaAgregados,pctAgregados,setPctAgregados,
     regimeAgregado,setRegimeAgregado,
+    insumosAtivosAgregados,setInsumosAtivosAgregados,insumosCustoAgregados,setInsumosCustoAgregados,
+    despesasSCAtivas,setDespesasSCAtivas,despesasSCCusto,setDespesasSCCusto,
     precoDiesel,setPrecoDiesel,
     isMob,
   };
