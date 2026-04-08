@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, createContext, useContext } from "react";
+import { jsPDF } from "jspdf";
 
 const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');`;
 
@@ -805,6 +806,175 @@ function Oracle(){
     {p:"Grande TRC", frete:400000,frota:120,regime:"Lucro Real",fp:50,ft:35,fa:15,mA:10,mS:50,mL:40,exp:10,cor:C.green},
   ];
 
+  const gerarPDF = () => {
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const W = 210; const mg = 16; const cw = W - mg * 2;
+    let y = mg;
+    const BRL = (v) => "R$ " + Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    const pct = (v) => Number(v).toFixed(2) + "%";
+
+    // Header
+    doc.setFillColor(255, 130, 0);
+    doc.rect(0, 0, W, 22, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.setTextColor(255, 255, 255);
+    doc.text("Simulador Reforma Tributária — TRC", mg, 10);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.text("CBS + IBS — LC 214/2025 | Rumo Brasil", mg, 16);
+    doc.text(new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }), W - mg, 16, { align: "right" });
+    y = 30;
+
+    // Parâmetros da simulação
+    doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(100, 100, 120);
+    doc.text("PARÂMETROS DA SIMULAÇÃO", mg, y); y += 5;
+    doc.setDrawColor(220, 220, 232); doc.line(mg, y, W - mg, y); y += 5;
+
+    const params = [
+      ["Faturamento mensal", BRL(frete)],
+      ["Frota", frota + " veículos"],
+      ["Regime tributário", regime],
+      ["Ano simulado", String(ano)],
+      ["Exportação", pctExportacao + "%"],
+      ["CBS", m.cbs + "%"],
+      ["IBS", m.ibs > 0 ? m.ibs + "%" : "—"],
+    ];
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(40, 40, 60);
+    params.forEach(([k, v]) => {
+      doc.text(k, mg, y); doc.setFont("helvetica", "bold"); doc.text(v, mg + 80, y); doc.setFont("helvetica", "normal"); y += 5;
+    });
+    y += 3;
+
+    // Composição operacional
+    doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(100, 100, 120);
+    doc.text("COMPOSIÇÃO OPERACIONAL", mg, y); y += 5;
+    doc.setDrawColor(220, 220, 232); doc.line(mg, y, W - mg, y); y += 5;
+    doc.setFont("helvetica", "normal"); doc.setTextColor(40, 40, 60);
+    if (usaFrota)      { doc.text("Frota Própria", mg, y);  doc.setFont("helvetica","bold"); doc.text(pctFrota + "%", mg + 80, y);  doc.setFont("helvetica","normal"); y += 5; }
+    if (usaTerceiros)  { doc.text("Terceiros (mix: " + mixAutonomo + "% aut. / " + mixSN + "% SN / " + mixLucro + "% LP-LR)", mg, y); doc.setFont("helvetica","bold"); doc.text(pctTerceiros + "%", mg + 80, y); doc.setFont("helvetica","normal"); y += 5; }
+    if (usaAgregados)  { doc.text("Agregados (" + regimeAgregado + ")", mg, y); doc.setFont("helvetica","bold"); doc.text(pctAgregados + "%", mg + 80, y); doc.setFont("helvetica","normal"); y += 5; }
+    y += 3;
+
+    // Apuração CBS
+    doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(100, 100, 120);
+    doc.text("APURAÇÃO CBS — " + m.cbs + "%", mg, y); y += 5;
+    doc.setDrawColor(220, 220, 232); doc.line(mg, y, W - mg, y); y += 5;
+    doc.setFont("helvetica", "normal"); doc.setTextColor(40, 40, 60);
+
+    const cbsRows = [
+      ["Débito CBS", BRL(reforma.cbsDebito), true],
+      ...(usaFrota ? [["(-) Crédito CBS frota", BRL(reforma.creditoCBS_frota), false]] : []),
+      ...(usaTerceiros ? [["(-) Crédito CBS terceiros", BRL(reforma.creditoCBS_terceiros), false]] : []),
+      ...(usaAgregados ? [["(-) Crédito CBS agregados", BRL(reforma.creditoCBS_agregados), false]] : []),
+      ["= CBS a recolher", BRL(reforma.cbsRecolher), true],
+    ];
+    cbsRows.forEach(([k, v, bold]) => {
+      if (bold) doc.setFont("helvetica", "bold"); else doc.setFont("helvetica", "normal");
+      doc.text(k, mg, y); doc.text(v, W - mg, y, { align: "right" }); y += 5;
+    });
+    y += 3;
+
+    // Apuração IBS
+    if (m.ibs > 0) {
+      doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(100, 100, 120);
+      doc.text("APURAÇÃO IBS — " + m.ibs + "%", mg, y); y += 5;
+      doc.setDrawColor(220, 220, 232); doc.line(mg, y, W - mg, y); y += 5;
+      doc.setFont("helvetica", "normal"); doc.setTextColor(40, 40, 60);
+      const ibsRows = [
+        ["Débito IBS", BRL(reforma.ibsDebito), true],
+        ...(usaFrota ? [["(-) Crédito IBS frota", BRL(reforma.creditoIBS_frota), false]] : []),
+        ...(usaTerceiros ? [["(-) Crédito IBS terceiros", BRL(reforma.creditoIBS_terceiros), false]] : []),
+        ...(usaAgregados ? [["(-) Crédito IBS agregados", BRL(reforma.creditoIBS_agregados), false]] : []),
+        ["= IBS a recolher", BRL(reforma.ibsRecolher), true],
+      ];
+      ibsRows.forEach(([k, v, bold]) => {
+        if (bold) doc.setFont("helvetica", "bold"); else doc.setFont("helvetica", "normal");
+        doc.text(k, mg, y); doc.text(v, W - mg, y, { align: "right" }); y += 5;
+      });
+      y += 3;
+    }
+
+    // Total
+    doc.setFillColor(255, 245, 230);
+    doc.roundedRect(mg, y, cw, 14, 2, 2, "F");
+    doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(255, 130, 0);
+    doc.text("TOTAL A RECOLHER / MÊS", mg + 4, y + 6);
+    doc.text(BRL(reforma.totalRecolher), W - mg - 4, y + 6, { align: "right" });
+    doc.setFontSize(8); doc.setTextColor(150, 100, 0);
+    doc.text(pct(pctCarga) + " do faturamento", W - mg - 4, y + 11, { align: "right" });
+    y += 20;
+
+    // KPIs
+    doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(100, 100, 120);
+    doc.text("INDICADORES", mg, y); y += 5;
+    doc.setDrawColor(220, 220, 232); doc.line(mg, y, W - mg, y); y += 5;
+    doc.setFont("helvetica", "normal"); doc.setTextColor(40, 40, 60);
+    const kpis = [
+      ["Débito total (CBS + IBS)", BRL(reforma.cbsDebito + reforma.ibsDebito)],
+      ["Crédito total", BRL(reforma.totalCreditoCBS + reforma.totalCreditoIBS)],
+      ["Impacto anual estimado", BRL(reforma.totalRecolher * 12)],
+      ["Carga efetiva sobre faturamento", pct(pctCarga)],
+    ];
+    kpis.forEach(([k, v]) => {
+      doc.text(k, mg, y); doc.setFont("helvetica","bold"); doc.text(v, W - mg, y, { align: "right" }); doc.setFont("helvetica","normal"); y += 5;
+    });
+    y += 3;
+
+    // Projeção 2027-2033
+    doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(100, 100, 120);
+    doc.text("PROJEÇÃO 2027–2033", mg, y); y += 5;
+    doc.setDrawColor(220, 220, 232); doc.line(mg, y, W - mg, y); y += 5;
+    doc.setFont("helvetica", "normal"); doc.setTextColor(40, 40, 60);
+    const bW = cw / MILES.length;
+    const vals = MILES.map(mi => calcTot(mi));
+    const maxV = Math.max(...vals, 1);
+    const barH = 20;
+    MILES.forEach((mi, i) => {
+      const h = Math.max(1, (vals[i] / maxV) * barH);
+      const bx = mg + i * bW;
+      const active = mi.ano === ano;
+      doc.setFillColor(active ? 255 : 200, active ? 130 : 200, active ? 0 : 200);
+      doc.rect(bx + 1, y + barH - h, bW - 2, h, "F");
+      doc.setFontSize(6); doc.setTextColor(80, 80, 100);
+      doc.text(String(mi.ano), bx + bW / 2, y + barH + 4, { align: "center" });
+      const label = vals[i] < 1000 ? String(Math.round(vals[i])) : (vals[i] / 1000).toFixed(1) + "k";
+      doc.text(label, bx + bW / 2, y + barH - h - 1, { align: "center" });
+    });
+    y += barH + 10;
+
+    // Insights
+    if (y > 240) { doc.addPage(); y = mg; }
+    doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(100, 100, 120);
+    doc.text("INSIGHTS DA SIMULAÇÃO", mg, y); y += 5;
+    doc.setDrawColor(220, 220, 232); doc.line(mg, y, W - mg, y); y += 5;
+
+    const insights = [];
+    if (regime === "Simples Nacional") insights.push({ titulo: "Simples Nacional — sem créditos", texto: `No SN, o tomador não apropria crédito de CBS/IBS. Carga efetiva: ${pct(pctCarga)} do faturamento.` });
+    if (usaFrota && reforma.creditoCBS_frota + reforma.creditoIBS_frota > 0) insights.push({ titulo: "Frota própria: créditos sobre insumos", texto: `Créditos CBS+IBS da frota: ${BRL(reforma.creditoCBS_frota + reforma.creditoIBS_frota)}/mês. ${Object.values(insumosAtivos).filter(Boolean).length} insumos gerando crédito.` });
+    if (usaTerceiros) { const cbsMedio = calcCBSCredito(mixAutonomo, mixSN, mixLucro); insights.push({ titulo: `Terceiros — crédito CBS médio ${cbsMedio.toFixed(2)}%`, texto: `Mix: ${mixAutonomo}% autônomo, ${mixSN}% SN, ${mixLucro}% LP/LR.` }); }
+    if (pctExportacao > 0) insights.push({ titulo: `Exportação: ${pctExportacao}% isento`, texto: "Receitas de exportação são isentas de CBS/IBS. Créditos sobre insumos são mantidos — gera acúmulo restituível." });
+    if (compTotal !== 100 && compTotal > 0) insights.push({ titulo: "Atenção: composição operacional incorreta", texto: `Soma frota + terceiros + agregados = ${compTotal}%. Ajuste para 100% para simulação precisa.` });
+    if (insights.length === 0) insights.push({ titulo: "Simulação configurada", texto: "Configure frota própria, terceiros ou agregados para ver os créditos detalhados." });
+
+    doc.setFont("helvetica", "normal"); doc.setTextColor(40, 40, 60); doc.setFontSize(9);
+    insights.forEach(ins => {
+      if (y > 270) { doc.addPage(); y = mg; }
+      doc.setFont("helvetica", "bold"); doc.text("• " + ins.titulo, mg, y); y += 5;
+      doc.setFont("helvetica", "normal");
+      const lines = doc.splitTextToSize(ins.texto, cw - 4);
+      lines.forEach(l => { doc.text(l, mg + 4, y); y += 4; });
+      y += 3;
+    });
+
+    // Rodapé
+    doc.setFontSize(7); doc.setTextColor(160, 160, 180);
+    doc.text("Simulador Reforma Tributária — Rumo Brasil | Gerado em " + new Date().toLocaleDateString("pt-BR"), W / 2, 290, { align: "center" });
+    doc.text("Documento informativo. Consulte um especialista tributário para decisões.", W / 2, 294, { align: "center" });
+
+    doc.save("simulacao-reforma-tributaria-" + ano + ".pdf");
+  };
+
   return(
     <div style={{display:"flex",flexDirection:"column",height:"calc(100vh - 48px)"}}>
       {/* Sub-header */}
@@ -815,7 +985,13 @@ function Oracle(){
           <Bdg color={C.brand}>REFORMA</Bdg>
           <span style={{fontFamily:F.sans,fontSize:10,color:C.text3}}>CBS + IBS — LC 214/2025</span>
         </div>
-        <span style={{fontFamily:F.sans,fontSize:10,color:C.text2}}>Somente Reforma Tributária (a partir de 2027)</span>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontFamily:F.sans,fontSize:10,color:C.text2}}>Somente Reforma Tributária (a partir de 2027)</span>
+          <button onClick={gerarPDF}
+            style={{display:"flex",alignItems:"center",gap:5,border:"1px solid "+C.brand+"44",background:C.brand,color:"#fff",borderRadius:2,padding:"5px 12px",cursor:"pointer",fontFamily:F.sans,fontSize:10,fontWeight:600,transition:"opacity 0.12s"}}>
+            📄 Gerar PDF
+          </button>
+        </div>
       </div>
 
       {/* Grid principal */}
