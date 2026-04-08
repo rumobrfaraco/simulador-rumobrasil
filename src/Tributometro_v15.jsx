@@ -1563,14 +1563,35 @@ function Oracle(){
                 />
               ))}
             </div>
-            {DESPESAS_SEM_CREDITO.some(d=>despesasSCAtivas[d.id]) && (
-              <div style={{marginTop:8,padding:"7px 10px",background:C.redLt,border:"1px solid "+C.red+"33",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <span style={{fontFamily:F.sans,fontSize:10,color:C.red,fontWeight:500}}>Total despesas sem crédito</span>
-                <span style={{fontFamily:F.mono,fontSize:11,color:C.red,fontWeight:600}}>
-                  R$ {DESPESAS_SEM_CREDITO.filter(d=>despesasSCAtivas[d.id]).reduce((s,d)=>s+(frete*(despesasSCCusto[d.id]||0)/100),0).toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês
-                </span>
-              </div>
-            )}
+            {(()=>{
+              const ativas = DESPESAS_SEM_CREDITO.filter(d=>despesasSCAtivas[d.id]);
+              const totalSC = ativas.reduce((s,d)=>s+(frete*(despesasSCCusto[d.id]||0)/100),0);
+              const totalPct = ativas.reduce((s,d)=>s+(despesasSCCusto[d.id]||0),0);
+              const alerta = totalPct > 80;
+              return ativas.length > 0 ? (
+                <div style={{marginTop:8,border:"1px solid "+C.red+"33",borderTop:"3px solid "+C.red}}>
+                  {ativas.map((d,i)=>(
+                    <div key={d.id} style={{display:"flex",justifyContent:"space-between",padding:"4px 10px",borderBottom:"1px solid "+C.border}}>
+                      <span style={{fontFamily:F.sans,fontSize:10,color:C.text2}}>{d.nome}</span>
+                      <div style={{display:"flex",gap:12,alignItems:"center"}}>
+                        <span style={{fontFamily:F.mono,fontSize:9,color:C.text3}}>{(despesasSCCusto[d.id]||0).toFixed(1)}%</span>
+                        <span style={{fontFamily:F.mono,fontSize:10,color:C.red}}>R$ {(frete*(despesasSCCusto[d.id]||0)/100).toLocaleString("pt-BR",{maximumFractionDigits:0})}</span>
+                      </div>
+                    </div>
+                  ))}
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",background:alerta?C.redLt:"transparent"}}>
+                    <div>
+                      <span style={{fontFamily:F.sans,fontSize:10,color:C.red,fontWeight:600}}>Total despesas sem crédito</span>
+                      {alerta && <span style={{fontFamily:F.sans,fontSize:8,color:C.red,marginLeft:6}}>⚠️ revise os valores</span>}
+                    </div>
+                    <div style={{textAlign:"right"}}>
+                      <div style={{fontFamily:F.mono,fontSize:12,color:C.red,fontWeight:700}}>R$ {totalSC.toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês</div>
+                      <div style={{fontFamily:F.mono,fontSize:9,color:C.text3}}>{totalPct.toFixed(1)}% do faturamento</div>
+                    </div>
+                  </div>
+                </div>
+              ) : null;
+            })()}
           </div>
 
           {/* ═══ RESULTADO DA SIMULAÇÃO ═══ */}
