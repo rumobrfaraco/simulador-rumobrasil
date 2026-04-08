@@ -116,7 +116,7 @@ function calcReforma({
 
   // ── TERCEIROS ──
   if (usaTerceiros && pctTerceiros > 0) {
-    const baseTerceiros = frete * (pctTerceiros / 100) * 0.75;
+    const baseTerceiros = frete * (pctTerceiros / 100);
     const cbsCredPct = calcCBSCredito(mixAutonomo, mixSN, mixLucro);
     creditoCBS_terceiros = baseTerceiros * (cbsCredPct / 100);
     creditoIBS_terceiros = baseTerceiros * aliqIBS;
@@ -138,7 +138,7 @@ function calcReforma({
 
   // ── AGREGADOS ──
   if (usaAgregados && pctAgregados > 0) {
-    const baseAgregados = frete * (pctAgregados / 100) * 0.80;
+    const baseAgregados = frete * (pctAgregados / 100);
     let cbsCredAgregado = 0;
     if (regimeAgregado === "Autônomo") cbsCredAgregado = CBS_CRED.autonomo / 100;
     else if (regimeAgregado === "Simples Nacional") cbsCredAgregado = CBS_CRED.simplesNacional / 100;
