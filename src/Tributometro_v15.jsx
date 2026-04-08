@@ -390,7 +390,7 @@ function AcoesPanel(){
 // PAINEL
 // ══════════════════════════════════════════════════════════
 function Painel(){
-  const {ano,setAno}=useApp();
+  const {ano,setAno,isMob}=useApp();
   const clock=useClock();
   const cd=useCountdown("2027-01-01T00:00:00");
   const {a,v}=useAlerts();
@@ -438,7 +438,7 @@ function Painel(){
       </div>
 
       {/* 3-col grid */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:1}}>
+      <div style={{display:"grid",gridTemplateColumns:isMob?"1fr":"repeat(3,minmax(0,1fr))",gap:1}}>
         {/* Col 1 — Timeline + Substituições */}
         <div style={{display:"flex",flexDirection:"column",gap:1}}>
           <div style={{background:C.bg1,padding:"14px 16px"}}>
@@ -457,7 +457,7 @@ function Painel(){
                 <Bdg color={m.cor}>{m.ano>=2033?"VIGENTE":"TRANSIÇÃO"}</Bdg>
               </div>
               <div style={{fontFamily:F.sans,fontSize:11,color:C.text2,lineHeight:1.6,marginBottom:10}}>{m.desc}</div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}>
+              <div style={{display:"grid",gridTemplateColumns:isMob?"repeat(3,1fr)":"repeat(3,1fr)",gap:6}}>
                 {[
                   {l:"CBS",      v:m.cbs+"%",   c:C.blue},
                   {l:"IBS",      v:m.ibs+"%",   c:C.purple},
@@ -566,7 +566,7 @@ function Painel(){
       {/* ── Impacto por tipo de operação ── */}
       <div style={{background:C.bg1,borderTop:"1px solid "+C.border,padding:"14px 16px"}}>
         <SL right={<Bdg color={C.brand}>CBS + IBS · LC 214/2025</Bdg>}>Impacto da Reforma Tributária por tipo de operação</SL>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:12}}>
+        <div style={{display:"grid",gridTemplateColumns:isMob?"1fr":"repeat(3,minmax(0,1fr))",gap:12}}>
 
           {/* ── FROTA PRÓPRIA ── */}
           <div style={{border:"1px solid "+C.blue+"44",borderTop:"3px solid "+C.blue,padding:"14px"}}>
@@ -731,7 +731,7 @@ function Oracle(){
          mixAutonomo,setMixAutonomo,mixSN,setMixSN,mixLucro,setMixLucro,
          usaAgregados,setUsaAgregados,pctAgregados,setPctAgregados,
          regimeAgregado,setRegimeAgregado,
-         precoDiesel,setPrecoDiesel}=useApp();
+         precoDiesel,setPrecoDiesel,isMob}=useApp();
 
   const [rf,setRf]=useState(frete.toLocaleString("pt-BR"));
   const [rv,setRv]=useState(String(frota));
@@ -1042,9 +1042,9 @@ function Oracle(){
   };
 
   return(
-    <div style={{display:"flex",flexDirection:"column",height:"calc(100vh - 48px)"}}>
+    <div style={{display:"flex",flexDirection:"column",height:isMob?"auto":"calc(100vh - 48px)",minHeight:isMob?"100svh":"auto"}}>
       {/* Sub-header */}
-      <div style={{background:C.bg1,borderBottom:"1px solid "+C.border,padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+      <div style={{background:C.bg1,borderBottom:"1px solid "+C.border,padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,flexWrap:"wrap",gap:8}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <span style={{width:6,height:6,borderRadius:"50%",background:C.green,display:"inline-block",animation:"liveDot 2s infinite"}}/>
           <span style={{fontFamily:F.sans,fontSize:13,fontWeight:600,color:C.text}}>Simulador TRC</span>
@@ -1061,10 +1061,10 @@ function Oracle(){
       </div>
 
       {/* Grid principal */}
-      <div style={{display:"grid",gridTemplateColumns:"300px 1fr",gap:1,flex:1,overflow:"hidden"}}>
+      <div style={{display:"grid",gridTemplateColumns:isMob?"1fr":"300px 1fr",gap:1,flex:isMob?undefined:1,overflow:isMob?"visible":"hidden"}}>
 
         {/* Coluna esquerda — Perfil */}
-        <div style={{background:C.bg1,padding:"14px 16px",overflowY:"auto",height:"100%"}}>
+        <div style={{background:C.bg1,padding:"14px 16px",overflowY:isMob?"visible":"auto",height:isMob?"auto":"100%"}}>
           <SL>Perfil do cliente</SL>
 
           <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:12}}>
@@ -1179,7 +1179,7 @@ function Oracle(){
         </div>
 
         {/* Coluna direita — 3 Telas + Resultado */}
-        <div style={{display:"flex",flexDirection:"column",gap:1,overflowY:"auto",height:"100%"}}>
+        <div style={{display:"flex",flexDirection:"column",gap:1,overflowY:isMob?"visible":"auto",height:isMob?"auto":"100%"}}>
 
           {/* Tabs: Frota / Terceiros / Agregados */}
           <div style={{background:C.bg1,padding:"10px 16px",borderBottom:"1px solid "+C.border,display:"flex",gap:2}}>
@@ -1447,7 +1447,7 @@ function Oracle(){
             </div>
 
             {/* KPIs */}
-            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:12}}>
+            <div style={{display:"grid",gridTemplateColumns:isMob?"1fr":"repeat(3,1fr)",gap:8,marginBottom:12}}>
               <div style={{background:C.bg2,border:"1px solid "+C.border,padding:"10px 12px"}}>
                 <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,marginBottom:4}}>Débito total {ano}</div>
                 <div style={{fontFamily:F.mono,fontSize:14,fontWeight:500,color:C.red,lineHeight:1}}>R$ {(reforma.cbsDebito+reforma.ibsDebito).toLocaleString("pt-BR",{maximumFractionDigits:0})}</div>
@@ -1468,7 +1468,7 @@ function Oracle(){
             {/* Custo por cenário */}
             <div style={{marginBottom:12}}>
               <SL>Custo mensal por cenário</SL>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+              <div style={{display:"grid",gridTemplateColumns:isMob?"1fr":"repeat(3,1fr)",gap:8}}>
                 {usaFrota && (
                   <div style={{padding:"10px 12px",background:C.blueLt,border:"1px solid "+C.blue+"33"}}>
                     <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,marginBottom:4}}>🚛 Frota Própria</div>
@@ -1618,6 +1618,7 @@ export default function App(){
     usaAgregados,setUsaAgregados,pctAgregados,setPctAgregados,
     regimeAgregado,setRegimeAgregado,
     precoDiesel,setPrecoDiesel,
+    isMob,
   };
 
   return(
