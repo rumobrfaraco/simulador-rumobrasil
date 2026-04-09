@@ -642,7 +642,10 @@ function Painel(){
       {/* ── Impacto por tipo de operação ── */}
       <div style={{background:C.bg1,borderTop:"1px solid "+C.border,padding:"14px 16px"}}>
         <SL right={<Bdg color={C.brand}>CBS + IBS · LC 214/2025</Bdg>}>Impacto da Reforma Tributária por tipo de operação</SL>
-        <div style={{display:"grid",gridTemplateColumns:isMob?"1fr":"repeat(3,minmax(0,1fr))",gap:12}}>
+        <div style={{marginBottom:10,padding:"8px 12px",background:C.brandLt,border:"1px solid "+C.brand+"33",fontFamily:F.sans,fontSize:10,color:C.text2}}>
+          Alíquotas exibidas conforme o ano selecionado acima — clique nos botões de ano para atualizar os cards.
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:isMob?"1fr":"repeat(2,minmax(0,1fr))",gap:12}}>
 
           {/* ── FROTA PRÓPRIA ── */}
           <div style={{border:"1px solid "+C.blue+"44",borderTop:"3px solid "+C.blue,padding:"14px"}}>
@@ -653,33 +656,31 @@ function Painel(){
                 <div style={{fontFamily:F.sans,fontSize:9,color:C.text3}}>Veículos próprios — crédito pleno sobre insumos</div>
               </div>
             </div>
-            {/* Débito */}
             <div style={{marginBottom:10}}>
-              <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,fontWeight:500,marginBottom:6,textTransform:"uppercase",letterSpacing:0.5}}>Débito (a partir de 2027)</div>
-              {[
-                {ano:"2027",cbs:"9,3%",ibs:"—",total:"9,3%",cor:C.blue},
-                {ano:"2029",cbs:"9,3%",ibs:"11,22%",total:"20,52%",cor:C.amber},
-                {ano:"2031",cbs:"9,3%",ibs:"14,96%",total:"24,26%",cor:C.brand},
-                {ano:"2033",cbs:"9,3%",ibs:"18,70%",total:"28,0%",cor:C.red},
-              ].map((r,i)=>(
-                <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 0",borderBottom:"1px solid "+C.border}}>
-                  <span style={{fontFamily:F.mono,fontSize:9,color:r.cor,fontWeight:600,minWidth:32}}>{r.ano}</span>
-                  <span style={{fontFamily:F.sans,fontSize:9,color:C.text3}}>CBS {r.cbs}</span>
-                  <span style={{fontFamily:F.sans,fontSize:9,color:C.text3}}>IBS {r.ibs}</span>
-                  <span style={{fontFamily:F.mono,fontSize:10,color:r.cor,fontWeight:600}}>{r.total}</span>
-                </div>
-              ))}
+              <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,fontWeight:500,marginBottom:6,textTransform:"uppercase",letterSpacing:0.5}}>Alíquotas em {ano}</div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}>
+                {[
+                  {l:"CBS",  v:m.cbs+"%",             c:C.blue,   bg:C.blueLt},
+                  {l:"IBS",  v:m.ibs>0?m.ibs+"%":"—", c:C.purple, bg:"rgba(124,58,237,0.06)"},
+                  {l:"Total",v:m.total+"%",            c:m.cor,    bg:m.cor+"18"},
+                ].map((r,i)=>(
+                  <div key={i} style={{background:r.bg,border:"1px solid "+r.c+"33",padding:"8px",textAlign:"center",borderRadius:2}}>
+                    <div style={{fontFamily:F.sans,fontSize:8,color:C.text2,marginBottom:4}}>{r.l}</div>
+                    <div style={{fontFamily:F.mono,fontSize:16,fontWeight:700,color:r.c,lineHeight:1}}>{r.v}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{marginTop:8,height:6,borderRadius:2,background:C.bg3,overflow:"hidden"}}>
+                <div style={{height:"100%",width:(m.total/28*100)+"%",background:m.cor,transition:"width 0.5s"}}/>
+              </div>
+              <div style={{fontFamily:F.sans,fontSize:9,color:C.text3,marginTop:3}}>
+                {m.total<28?`${(28-m.total).toFixed(2)}pp abaixo do IVA Dual pleno (28%)`:"IVA Dual pleno atingido"}
+              </div>
             </div>
-            {/* Crédito */}
             <div style={{padding:"8px 10px",background:C.blueLt,border:"1px solid "+C.blue+"33",borderLeft:"2px solid "+C.blue,marginBottom:8}}>
               <div style={{fontFamily:F.sans,fontSize:9,color:C.blue,fontWeight:600,marginBottom:4}}>✓ CRÉDITO PLENO sobre insumos</div>
               <div style={{display:"flex",flexDirection:"column",gap:2}}>
-                {[
-                  "Diesel / GNV / Gasolina",
-                  "Peças e pneus",
-                  "Manutenção preventiva e corretiva",
-                  "Pedágios",
-                ].map((item,i)=>(
+                {["Diesel / GNV / Gasolina","Peças e pneus","Manutenção preventiva e corretiva","Pedágios"].map((item,i)=>(
                   <div key={i} style={{fontFamily:F.sans,fontSize:9,color:C.text2}}>• {item}</div>
                 ))}
               </div>
@@ -688,55 +689,6 @@ function Painel(){
               <div style={{fontFamily:F.sans,fontSize:9,color:C.green,fontWeight:500}}>Carga efetiva (2033) estimada</div>
               <div style={{fontFamily:F.mono,fontSize:13,color:C.green,fontWeight:600}}>~11–14%</div>
               <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginTop:2}}>com aproveitamento pleno de créditos sobre insumos (~55% do faturamento)</div>
-            </div>
-          </div>
-
-          {/* ── AGREGADOS ── */}
-          <div style={{border:"1px solid "+C.green+"44",borderTop:"3px solid "+C.green,padding:"14px"}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
-              <span style={{fontSize:18}}>🤝</span>
-              <div>
-                <div style={{fontFamily:F.sans,fontSize:13,fontWeight:600,color:C.green}}>Agregados</div>
-                <div style={{fontFamily:F.sans,fontSize:9,color:C.text3}}>Motoristas com veículo próprio — crédito limitado pelo regime</div>
-              </div>
-            </div>
-            {/* Débito */}
-            <div style={{marginBottom:10}}>
-              <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,fontWeight:500,marginBottom:6,textTransform:"uppercase",letterSpacing:0.5}}>Débito (a partir de 2027)</div>
-              {[
-                {ano:"2027",cbs:"9,3%",ibs:"—",total:"9,3%",cor:C.blue},
-                {ano:"2029",cbs:"9,3%",ibs:"11,22%",total:"20,52%",cor:C.amber},
-                {ano:"2031",cbs:"9,3%",ibs:"14,96%",total:"24,26%",cor:C.brand},
-                {ano:"2033",cbs:"9,3%",ibs:"18,70%",total:"28,0%",cor:C.red},
-              ].map((r,i)=>(
-                <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 0",borderBottom:"1px solid "+C.border}}>
-                  <span style={{fontFamily:F.mono,fontSize:9,color:r.cor,fontWeight:600,minWidth:32}}>{r.ano}</span>
-                  <span style={{fontFamily:F.sans,fontSize:9,color:C.text3}}>CBS {r.cbs}</span>
-                  <span style={{fontFamily:F.sans,fontSize:9,color:C.text3}}>IBS {r.ibs}</span>
-                  <span style={{fontFamily:F.mono,fontSize:10,color:r.cor,fontWeight:600}}>{r.total}</span>
-                </div>
-              ))}
-            </div>
-            {/* Crédito por regime */}
-            <div style={{padding:"8px 10px",background:C.greenLt,border:"1px solid "+C.green+"33",borderLeft:"2px solid "+C.green,marginBottom:8}}>
-              <div style={{fontFamily:F.sans,fontSize:9,color:C.green,fontWeight:600,marginBottom:6}}>Crédito CBS por regime do agregado</div>
-              {[
-                {regime:"Autônomo (TAC/TRC)",  cred:"1,86%", cor:C.amber, obs:"base: 80% do valor pago"},
-                {regime:"Simples Nacional",     cred:"2,50%", cor:C.teal,  obs:"base: 80% do valor pago"},
-                {regime:"Lucro Presumido/Real", cred:"9,3%",  cor:C.green, obs:"base: 80% do valor pago"},
-              ].map((r,i)=>(
-                <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"3px 0",borderBottom:i<2?"1px solid "+C.border+"88":"none"}}>
-                  <div>
-                    <div style={{fontFamily:F.sans,fontSize:9,color:C.text2}}>{r.regime}</div>
-                    <div style={{fontFamily:F.sans,fontSize:8,color:C.text3}}>{r.obs}</div>
-                  </div>
-                  <span style={{fontFamily:F.mono,fontSize:11,color:r.cor,fontWeight:600}}>{r.cred}</span>
-                </div>
-              ))}
-            </div>
-            <div style={{padding:"6px 10px",background:C.amberLt,border:"1px solid "+C.amber+"33",borderRadius:2}}>
-              <div style={{fontFamily:F.sans,fontSize:9,color:C.amber,fontWeight:500}}>Atenção: IBS crédito sobre 80% da base</div>
-              <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginTop:2}}>O tomador se credita do IBS sobre o valor pago ao agregado (base 80%). Crédito CBS varia pelo regime dele.</div>
             </div>
           </div>
 
@@ -749,30 +701,33 @@ function Painel(){
                 <div style={{fontFamily:F.sans,fontSize:9,color:C.text3}}>Transportadores contratados via CT-e — crédito pelo regime do prestador</div>
               </div>
             </div>
-            {/* Débito */}
             <div style={{marginBottom:10}}>
-              <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,fontWeight:500,marginBottom:6,textTransform:"uppercase",letterSpacing:0.5}}>Débito (a partir de 2027)</div>
-              {[
-                {ano:"2027",cbs:"9,3%",ibs:"—",total:"9,3%",cor:C.blue},
-                {ano:"2029",cbs:"9,3%",ibs:"11,22%",total:"20,52%",cor:C.amber},
-                {ano:"2031",cbs:"9,3%",ibs:"14,96%",total:"24,26%",cor:C.brand},
-                {ano:"2033",cbs:"9,3%",ibs:"18,70%",total:"28,0%",cor:C.red},
-              ].map((r,i)=>(
-                <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 0",borderBottom:"1px solid "+C.border}}>
-                  <span style={{fontFamily:F.mono,fontSize:9,color:r.cor,fontWeight:600,minWidth:32}}>{r.ano}</span>
-                  <span style={{fontFamily:F.sans,fontSize:9,color:C.text3}}>CBS {r.cbs}</span>
-                  <span style={{fontFamily:F.sans,fontSize:9,color:C.text3}}>IBS {r.ibs}</span>
-                  <span style={{fontFamily:F.mono,fontSize:10,color:r.cor,fontWeight:600}}>{r.total}</span>
-                </div>
-              ))}
+              <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,fontWeight:500,marginBottom:6,textTransform:"uppercase",letterSpacing:0.5}}>Alíquotas em {ano}</div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}>
+                {[
+                  {l:"CBS",  v:m.cbs+"%",             c:C.blue,   bg:C.blueLt},
+                  {l:"IBS",  v:m.ibs>0?m.ibs+"%":"—", c:C.purple, bg:"rgba(124,58,237,0.06)"},
+                  {l:"Total",v:m.total+"%",            c:m.cor,    bg:m.cor+"18"},
+                ].map((r,i)=>(
+                  <div key={i} style={{background:r.bg,border:"1px solid "+r.c+"33",padding:"8px",textAlign:"center",borderRadius:2}}>
+                    <div style={{fontFamily:F.sans,fontSize:8,color:C.text2,marginBottom:4}}>{r.l}</div>
+                    <div style={{fontFamily:F.mono,fontSize:16,fontWeight:700,color:r.c,lineHeight:1}}>{r.v}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{marginTop:8,height:6,borderRadius:2,background:C.bg3,overflow:"hidden"}}>
+                <div style={{height:"100%",width:(m.total/28*100)+"%",background:m.cor,transition:"width 0.5s"}}/>
+              </div>
+              <div style={{fontFamily:F.sans,fontSize:9,color:C.text3,marginTop:3}}>
+                {m.total<28?`${(28-m.total).toFixed(2)}pp abaixo do IVA Dual pleno (28%)`:"IVA Dual pleno atingido"}
+              </div>
             </div>
-            {/* Crédito por regime */}
             <div style={{padding:"8px 10px",background:C.amberLt,border:"1px solid "+C.amber+"33",borderLeft:"2px solid "+C.amber,marginBottom:8}}>
               <div style={{fontFamily:F.sans,fontSize:9,color:C.amber,fontWeight:600,marginBottom:6}}>Crédito CBS pelo regime do terceiro</div>
               {[
-                {regime:"Autônomo (TAC/TRC)",  cred:"1,86%", cor:C.red,    obs:"base: 75% do valor subcontratado"},
-                {regime:"Simples Nacional",     cred:"2,50%", cor:C.amber,  obs:"base: 75% do valor subcontratado"},
-                {regime:"Lucro Presumido/Real", cred:"9,3%",  cor:C.green,  obs:"base: 75% do valor subcontratado"},
+                {regime:"Autônomo (TAC/TRC)",  cred:"1,86%", cor:C.red,   obs:"sobre o valor pago (líquido de margem)"},
+                {regime:"Simples Nacional",     cred:"2,50%", cor:C.amber, obs:"sobre o valor pago (líquido de margem)"},
+                {regime:"Lucro Presumido/Real", cred:"9,3%",  cor:C.green, obs:"sobre o valor pago (líquido de margem)"},
               ].map((r,i)=>(
                 <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"3px 0",borderBottom:i<2?"1px solid "+C.border+"88":"none"}}>
                   <div>
@@ -785,7 +740,7 @@ function Painel(){
             </div>
             <div style={{padding:"6px 10px",background:C.redLt,border:"1px solid "+C.red+"33",borderRadius:2}}>
               <div style={{fontFamily:F.sans,fontSize:9,color:C.red,fontWeight:500}}>Mix padrão TRC: crédito CBS médio ~3,73%</div>
-              <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginTop:2}}>20% autôn + 60% SN + 20% LP. Quanto maior a participação de LP/LR na frota de terceiros, maior o crédito recuperado.</div>
+              <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginTop:2}}>20% autôn + 60% SN + 20% LP. Quanto maior a participação de LP/LR, maior o crédito recuperado.</div>
             </div>
           </div>
 
@@ -1069,7 +1024,91 @@ function Oracle(){
     });
     y += 23;
 
-    // ── Seção 4: Projeção ──
+    // ── Seção 4: Comparativo Antes × Depois ──
+    if (y > 210) { doc.addPage(); drawFrame(); y = 46; }
+    section("Comparativo — Antes e Depois da Reforma");
+
+    const hoje = frete * (1 - pctExportacao/100) * 0.0365;
+    const liq2033pdf = calcReforma({
+      frete, regime, pctExportacao,
+      cbsAliq:9.3, ibsAliq:18.7,
+      usaFrota, pctFrota, insumosAtivos, insumosCusto,
+      usaTerceiros, pctTerceiros, mixAutonomo, mixSN, mixLucro, margemTerceiros,
+      insumosAtivosTerceiros, insumosCustoTerceiros,
+      usaAgregados, pctAgregados, regimeAgregado, margemAgregados,
+      insumosAtivosAgregados, insumosCustoAgregados,
+    }).totalRecolher;
+    const vAnoPDF = (reforma.totalRecolher - hoje) / Math.max(hoje, 1) * 100;
+    const v33PDF  = (liq2033pdf - hoje) / Math.max(hoje, 1) * 100;
+
+    const bxCmp = (cw - 6) / 3;
+    [
+      {titulo:"HOJE",              sub:"PIS + COFINS 3,65%",            valor:hoje,                 varP:null,    cor:GR},
+      {titulo:String(m.ano)+" — "+m.label, sub:"CBS "+m.cbs+"% + IBS "+m.ibs+"%", valor:reforma.totalRecolher, varP:vAnoPDF, cor:OR},
+      {titulo:"2033 — IVA Dual",   sub:"CBS 9,3% + IBS 18,7%",          valor:liq2033pdf,           varP:v33PDF,  cor:[220,38,38]},
+    ].forEach((bx, i) => {
+      const bxLeft = mg + i * (bxCmp + 3);
+      doc.setFillColor(...BG); doc.setDrawColor(...BD); doc.setLineWidth(0.25);
+      doc.rect(bxLeft, y, bxCmp, 28, "FD");
+      doc.setFillColor(...bx.cor); doc.rect(bxLeft, y, bxCmp, 2.5, "F");
+      doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(...bx.cor);
+      doc.text(bx.titulo, bxLeft + 3, y + 7);
+      doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(...LG);
+      doc.splitTextToSize(bx.sub, bxCmp - 6).forEach((l, li) => {
+        doc.text(l, bxLeft + 3, y + 11 + li * 3.5);
+      });
+      doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(...DK);
+      doc.text(BRL(bx.valor), bxLeft + 3, y + 20);
+      doc.setFont("helvetica","normal"); doc.setFontSize(6.5);
+      if (bx.varP !== null) {
+        const up = bx.varP > 0;
+        doc.setTextColor(up ? 220 : 22, up ? 38 : 163, up ? 38 : 74);
+        doc.text((up ? "▲ +" : "▼ ") + Math.abs(bx.varP).toFixed(0) + "% vs. hoje", bxLeft + 3, y + 25);
+      } else {
+        doc.setTextColor(...LG);
+        doc.text(BRL(hoje*12) + "/ano", bxLeft + 3, y + 25);
+      }
+    });
+    y += 33;
+
+    // Narrativa comercial
+    const credTotPDF = reforma.totalCreditoCBS + reforma.totalCreditoIBS;
+    const debTotPDF  = reforma.cbsDebito + reforma.ibsDebito;
+    const eficPDF    = debTotPDF > 0 ? credTotPDF / debTotPDF * 100 : 0;
+    doc.setFillColor(255, 244, 229);
+    doc.rect(mg, y, cw, 3, "F");
+    doc.setFillColor(...OR); doc.rect(mg, y, 2.5, 3, "F");
+    y += 6;
+    doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(...OR);
+    doc.text("O que muda para o seu negócio", mg + 5, y); y += 5;
+    doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(...GR);
+    const narrativaTxt = vAnoPDF > 0
+      ? `Em ${m.ano}, a carga tributária sobe de ${BRL(hoje)} para ${BRL(reforma.totalRecolher)}/mês (+${vAnoPDF.toFixed(0)}%), equivalente a ${BRL((reforma.totalRecolher-hoje)*12)}/ano adicionais. Em 2033, chegará a ${BRL(liq2033pdf)}/mês — porém ${BRL(credTotPDF)}/mês são recuperados via créditos (${eficPDF.toFixed(0)}% do débito).`
+      : `Com os créditos sobre insumos, o tributo em ${m.ano} cai de ${BRL(hoje)} para ${BRL(reforma.totalRecolher)}/mês. Os ${BRL(credTotPDF)}/mês em créditos compensam ${eficPDF.toFixed(0)}% do débito total — quem mapear bem os insumos agora sai na frente.`;
+    doc.splitTextToSize(narrativaTxt, cw - 10).forEach(l => { doc.text(l, mg + 5, y); y += 4.3; });
+    y += 4;
+
+    // KPIs rápidos
+    const kpiDataPDF = [
+      {l:"Por R$ 1.000 faturados",   v1:"Hoje: R$ "+(hoje/frete*1000).toFixed(2),         v2:"Em "+m.ano+": R$ "+(reforma.totalRecolher/frete*1000).toFixed(2)},
+      {l:"Créditos recuperados",      v1:BRL(credTotPDF)+"/mês",                            v2:eficPDF.toFixed(0)+"% do débito total"},
+      {l:"Carga efetiva s/ fat.",     v1:"Hoje: "+(hoje/frete*100).toFixed(2)+"%",          v2:"Em "+m.ano+": "+(reforma.totalRecolher/frete*100).toFixed(2)+"%"},
+    ];
+    const kpiBxPDF = (cw - 6) / 3;
+    kpiDataPDF.forEach((k, i) => {
+      const kx = mg + i * (kpiBxPDF + 3);
+      doc.setFillColor(...BG); doc.setDrawColor(...BD); doc.setLineWidth(0.25);
+      doc.rect(kx, y, kpiBxPDF, 16, "FD");
+      doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(...LG);
+      doc.text(k.l, kx + 3, y + 5);
+      doc.setFont("helvetica","bold"); doc.setFontSize(8.5); doc.setTextColor(...DK);
+      doc.text(k.v1, kx + 3, y + 10);
+      doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(...OR);
+      doc.text(k.v2, kx + 3, y + 14.5);
+    });
+    y += 22;
+
+    // ── Seção 5: Projeção ──
     if (y > 215) { doc.addPage(); drawFrame(); y = 46; }
     section("Projeção do Tributo Líquido — 2027 a 2033");
 
@@ -1124,6 +1163,49 @@ function Oracle(){
       doc.splitTextToSize(r.d, cw - 10).forEach(l => { doc.text(l, mg + 7, y); y += 4.3; });
       y += 5;
     });
+
+    // ── Plano de Ação ──
+    if (y > 230) { doc.addPage(); drawFrame(); y = 46; }
+    doc.setFillColor(...OR); doc.rect(mg, y, 2.5, 7, "F");
+    doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(...GR);
+    doc.text("PLANO DE AÇÃO — COMO SE PREPARAR", mg + 5, y + 5);
+    y += 12;
+    doc.setDrawColor(...BD); doc.setLineWidth(0.25);
+    doc.line(mg + 5, y - 1, W - mg, y - 1);
+    y += 4;
+
+    [
+      {prazo:"Ago 2026", status:"URGENTE", cor:[220,38,38],
+       acao:"Atualizar layout CT-e e NF-e com campos CBS/IBS obrigatórios",
+       imp:"Multa por emissão incorreta a partir de jan/2027 — sistemas devem estar prontos"},
+      {prazo:"Dez 2026", status:"URGENTE", cor:[220,38,38],
+       acao:"Certificar TMS/ERP para emissão no novo padrão fiscal CBS/IBS",
+       imp:"Risco de glosa de créditos e inconsistência fiscal em todo o período de transição"},
+      {prazo:"Jan 2027", status:"OPORT.", cor:[22,163,74],
+       acao:"Mapear mix de fornecedores (autônomo/SN/LP-LR) para maximizar crédito CBS",
+       imp:"Mix médio TRC = 3,73%. Cada 10pp a mais em LP/LR aumenta o crédito em ~0,75%"},
+      {prazo:"Jun 2027", status:"ATENÇÃO", cor:[180,83,9],
+       acao:"Inserir cláusula de reajuste tributário em contratos de longo prazo",
+       imp:"Garante repasse do IVA Dual ao tomador sem comprimir a margem da transportadora"},
+      {prazo:"2026",     status:"ATENÇÃO", cor:[180,83,9],
+       acao:"Capacitar equipe fiscal e comercial nas regras CBS, IBS e créditos",
+       imp:"Apenas 23% das transportadoras iniciaram a adaptação (ABCAM 2025)"},
+    ].forEach(a => {
+      if (y > 260) { doc.addPage(); drawFrame(); y = 46; }
+      doc.setFillColor(...BG); doc.setDrawColor(...BD); doc.setLineWidth(0.2);
+      doc.rect(mg + 5, y, cw - 5, 15, "FD");
+      doc.setFillColor(...a.cor); doc.rect(mg + 5, y, 2, 15, "F");
+      doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(...a.cor);
+      doc.text(a.status, mg + 10, y + 5.5);
+      doc.setFontSize(6.5); doc.setTextColor(...LG);
+      doc.text(a.prazo, W - mg - 2, y + 5.5, {align:"right"});
+      doc.setFont("helvetica","bold"); doc.setFontSize(8.5); doc.setTextColor(...DK);
+      doc.splitTextToSize(a.acao, cw - 20).forEach((l, li) => { doc.text(l, mg + 10, y + 10 + li * 3.5); });
+      doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(...LG);
+      doc.text("Impacto: " + a.imp, mg + 10, y + 13.5);
+      y += 18;
+    });
+    y += 4;
 
     // ── Disclaimer ──
     if (y > 268) { doc.addPage(); drawFrame(); y = 46; }
