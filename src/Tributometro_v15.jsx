@@ -797,7 +797,7 @@ function Oracle(){
   const cf=()=>{const n=parseInt(rf.replace(/\D/g,""),10);if(n>0){setFrete(n);setRf(n.toLocaleString("pt-BR"));}else setRf(frete.toLocaleString("pt-BR"));};
   const cv=()=>{const n=parseInt(rv,10);if(!isNaN(n)&&n>0&&n<=9999)setFrota(n);else setRv(String(frota));};
   const cExp=()=>{const n=parseInt(rExp,10);if(!isNaN(n)&&n>=0&&n<=100)setPctExportacao(n);else setRExp(String(pctExportacao));};
-  const cPF=()=>{const n=parseInt(rPF,10);if(!isNaN(n)&&n>=0&&n<=100)setPctFrota(n);else setRPF(String(pctFrota));};
+  const cPF=()=>{const n=parseInt(rPF,10);if(!isNaN(n)&&n>=0&&n<=100){setPctFrota(n);const comp=100-n;setPctTerceiros(comp);setRPT(String(comp));}else setRPF(String(pctFrota));};
   const cPT=()=>{const n=parseInt(rPT,10);if(!isNaN(n)&&n>=0&&n<=100)setPctTerceiros(n);else setRPT(String(pctTerceiros));};
   const cPA=()=>{const n=parseInt(rPA,10);if(!isNaN(n)&&n>=0&&n<=100)setPctAgregados(n);else setRPA(String(pctAgregados));};
   const cA=()=>{const n=parseInt(rA,10);if(!isNaN(n)&&n>=0&&n<=100)setMixAutonomo(n);else setRA(String(mixAutonomo));};
@@ -1028,7 +1028,15 @@ function Oracle(){
     if (y > 210) { doc.addPage(); drawFrame(); y = 46; }
     section("Comparativo — Antes e Depois da Reforma");
 
-    const hoje = frete * (1 - pctExportacao/100) * 0.0365;
+    const liq2027pdf = calcReforma({
+      frete, regime, pctExportacao,
+      cbsAliq:9.3, ibsAliq:0,
+      usaFrota, pctFrota, insumosAtivos, insumosCusto,
+      usaTerceiros, pctTerceiros, mixAutonomo, mixSN, mixLucro, margemTerceiros,
+      insumosAtivosTerceiros, insumosCustoTerceiros,
+      usaAgregados, pctAgregados, regimeAgregado, margemAgregados,
+      insumosAtivosAgregados, insumosCustoAgregados,
+    }).totalRecolher;
     const liq2033pdf = calcReforma({
       frete, regime, pctExportacao,
       cbsAliq:9.3, ibsAliq:18.7,
@@ -1038,14 +1046,14 @@ function Oracle(){
       usaAgregados, pctAgregados, regimeAgregado, margemAgregados,
       insumosAtivosAgregados, insumosCustoAgregados,
     }).totalRecolher;
-    const vAnoPDF = (reforma.totalRecolher - hoje) / Math.max(hoje, 1) * 100;
-    const v33PDF  = (liq2033pdf - hoje) / Math.max(hoje, 1) * 100;
+    const vAnoPDF = (reforma.totalRecolher - liq2027pdf) / Math.max(liq2027pdf, 1) * 100;
+    const v33PDF  = (liq2033pdf - liq2027pdf) / Math.max(liq2027pdf, 1) * 100;
 
     const bxCmp = (cw - 6) / 3;
     [
-      {titulo:"HOJE",              sub:"PIS + COFINS 3,65%",            valor:hoje,                 varP:null,    cor:GR},
-      {titulo:String(m.ano)+" — "+m.label, sub:"CBS "+m.cbs+"% + IBS "+m.ibs+"%", valor:reforma.totalRecolher, varP:vAnoPDF, cor:OR},
-      {titulo:"2033 — IVA Dual",   sub:"CBS 9,3% + IBS 18,7%",          valor:liq2033pdf,           varP:v33PDF,  cor:[220,38,38]},
+      {titulo:"2027 — CBS Ativa",       sub:"CBS 9,3% · IBS ainda não vigora", valor:liq2027pdf,            varP:null,    cor:[29,91,215]},
+      {titulo:String(m.ano)+" — "+m.label, sub:"CBS "+m.cbs+"% + IBS "+m.ibs+"%",  valor:reforma.totalRecolher, varP:vAnoPDF, cor:OR},
+      {titulo:"2033 — IVA Dual Pleno",  sub:"CBS 9,3% + IBS 18,7%",            valor:liq2033pdf,            varP:v33PDF,  cor:[220,38,38]},
     ].forEach((bx, i) => {
       const bxLeft = mg + i * (bxCmp + 3);
       doc.setFillColor(...BG); doc.setDrawColor(...BD); doc.setLineWidth(0.25);
@@ -1063,10 +1071,10 @@ function Oracle(){
       if (bx.varP !== null) {
         const up = bx.varP > 0;
         doc.setTextColor(up ? 220 : 22, up ? 38 : 163, up ? 38 : 74);
-        doc.text((up ? "▲ +" : "▼ ") + Math.abs(bx.varP).toFixed(0) + "% vs. hoje", bxLeft + 3, y + 25);
+        doc.text((up ? "▲ +" : "▼ ") + Math.abs(bx.varP).toFixed(0) + "% vs. 2027", bxLeft + 3, y + 25);
       } else {
         doc.setTextColor(...LG);
-        doc.text(BRL(hoje*12) + "/ano", bxLeft + 3, y + 25);
+        doc.text(BRL(liq2027pdf*12) + "/ano", bxLeft + 3, y + 25);
       }
     });
     y += 33;
@@ -1083,16 +1091,16 @@ function Oracle(){
     doc.text("O que muda para o seu negócio", mg + 5, y); y += 5;
     doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(...GR);
     const narrativaTxt = vAnoPDF > 0
-      ? `Em ${m.ano}, a carga tributária sobe de ${BRL(hoje)} para ${BRL(reforma.totalRecolher)}/mês (+${vAnoPDF.toFixed(0)}%), equivalente a ${BRL((reforma.totalRecolher-hoje)*12)}/ano adicionais. Em 2033, chegará a ${BRL(liq2033pdf)}/mês — porém ${BRL(credTotPDF)}/mês são recuperados via créditos (${eficPDF.toFixed(0)}% do débito).`
-      : `Com os créditos sobre insumos, o tributo em ${m.ano} cai de ${BRL(hoje)} para ${BRL(reforma.totalRecolher)}/mês. Os ${BRL(credTotPDF)}/mês em créditos compensam ${eficPDF.toFixed(0)}% do débito total — quem mapear bem os insumos agora sai na frente.`;
+      ? `Em ${m.ano}, o tributo CBS+IBS sobe de ${BRL(liq2027pdf)} (2027) para ${BRL(reforma.totalRecolher)}/mês (+${vAnoPDF.toFixed(0)}%), com IBS entrando de forma escalonada. Em 2033 chegará a ${BRL(liq2033pdf)}/mês (+${v33PDF.toFixed(0)}% vs. 2027).`
+      : `Em ${m.ano}, com créditos sobre insumos, o tributo CBS+IBS é ${BRL(reforma.totalRecolher)}/mês. Os ${BRL(credTotPDF)}/mês em créditos compensam ${eficPDF.toFixed(0)}% do débito total — quem mapear os insumos sai na frente.`;
     doc.splitTextToSize(narrativaTxt, cw - 10).forEach(l => { doc.text(l, mg + 5, y); y += 4.3; });
     y += 4;
 
     // KPIs rápidos
     const kpiDataPDF = [
-      {l:"Por R$ 1.000 faturados",   v1:"Hoje: R$ "+(hoje/frete*1000).toFixed(2),         v2:"Em "+m.ano+": R$ "+(reforma.totalRecolher/frete*1000).toFixed(2)},
+      {l:"Por R$ 1.000 faturados",   v1:"2027: R$ "+(liq2027pdf/frete*1000).toFixed(2),   v2:"Em "+m.ano+": R$ "+(reforma.totalRecolher/frete*1000).toFixed(2)},
       {l:"Créditos recuperados",      v1:BRL(credTotPDF)+"/mês",                            v2:eficPDF.toFixed(0)+"% do débito total"},
-      {l:"Carga efetiva s/ fat.",     v1:"Hoje: "+(hoje/frete*100).toFixed(2)+"%",          v2:"Em "+m.ano+": "+(reforma.totalRecolher/frete*100).toFixed(2)+"%"},
+      {l:"Carga efetiva s/ fat.",     v1:"2027: "+(liq2027pdf/frete*100).toFixed(2)+"%",    v2:"Em "+m.ano+": "+(reforma.totalRecolher/frete*100).toFixed(2)+"%"},
     ];
     const kpiBxPDF = (cw - 6) / 3;
     kpiDataPDF.forEach((k, i) => {
@@ -1247,18 +1255,6 @@ function Oracle(){
           <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:12}}>
             <NInput label="Faturamento / mês" raw={rf} setRaw={setRf} onBlur={cf} prefix="R$"/>
             <NInput label="Frota" raw={rv} setRaw={setRv} onBlur={cv} suffix="veículos"/>
-          </div>
-
-          <D my={8}/>
-
-          {/* Regime tributário */}
-          <div style={{marginBottom:10}}>
-            <div style={{fontFamily:F.sans,fontSize:10,color:C.text2,marginBottom:6}}>Regime tributário</div>
-            <div style={{display:"flex",flexDirection:"column",gap:4}}>
-              {["Lucro Presumido","Lucro Real"].map(o=>(
-                <Sel key={o} label={o} active={regime===o} onClick={()=>setRegime(o)}/>
-              ))}
-            </div>
           </div>
 
           <D my={8}/>
@@ -1420,7 +1416,11 @@ function Oracle(){
                   </div>
                 ) : (
                   <>
-                    <NInput label="% do faturamento que é terceiros" raw={rPT} setRaw={setRPT} onBlur={cPT} suffix="%"/>
+                    <div style={{padding:"8px 10px",background:C.bg2,border:"1px solid "+C.border,borderLeft:"2px solid "+C.amber,borderRadius:2}}>
+                      <div style={{fontFamily:F.sans,fontSize:9,color:C.amber,fontWeight:600,marginBottom:2}}>Complemento automático da frota própria</div>
+                      <div style={{fontFamily:F.sans,fontSize:11,color:C.text,fontWeight:500}}>{pctTerceiros}% do faturamento <span style={{fontFamily:F.mono,fontSize:10,color:C.text3}}>= R$ {(frete*pctTerceiros/100).toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês</span></div>
+                      <div style={{fontFamily:F.sans,fontSize:9,color:C.text3,marginTop:2}}>Frota própria {pctFrota}% + Terceiros {pctTerceiros}% = 100%. Ajuste pelo % de frota ao lado.</div>
+                    </div>
                     <div style={{marginTop:6}}>
                       <NInput label="Margem da transportadora sobre o frete terceirizado" hint="base do crédito = frete × (1 − margem)" raw={rMT} setRaw={setRMT} onBlur={cMT} suffix="%"/>
                     </div>
