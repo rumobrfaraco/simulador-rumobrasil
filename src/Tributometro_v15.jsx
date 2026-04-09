@@ -1716,12 +1716,8 @@ function Oracle(){
           {/* ═══ RESULTADO & IMPACTO ═══ */}
           <div style={{background:C.bg1,borderTop:"1px solid "+C.border}}>
 
-            {/* ── 2 colunas: Apuração | Análise de impacto ── */}
-            <div style={{display:"grid",gridTemplateColumns:isMob?"1fr":"3fr 2fr",borderBottom:"1px solid "+C.border}}>
-
-              {/* Col A — Apuração */}
-              <div style={{padding:"14px 16px",borderRight:isMob?"none":"1px solid "+C.border}}>
-                <SL right={<Bdg color={C.brand}>CBS + IBS · {ano}</Bdg>}>Resultado da simulação</SL>
+            <div style={{padding:"14px 16px",borderBottom:"1px solid "+C.border}}>
+              <SL right={<Bdg color={C.brand}>CBS + IBS · {ano}</Bdg>}>Resultado da simulação</SL>
 
             {/* Apuração CBS + IBS */}
             <div style={{border:"1px solid "+C.border,borderTop:"3px solid "+C.brand,padding:"12px",marginBottom:10}}>
@@ -1783,7 +1779,37 @@ function Oracle(){
                 <span style={{fontFamily:F.mono,fontSize:16,color:C.brand,fontWeight:600}}>R$ {reforma.totalRecolher.toLocaleString("pt-BR",{maximumFractionDigits:0})}</span>
               </div>
               <div style={{fontFamily:F.mono,fontSize:9,color:C.text3,textAlign:"right"}}>{pctCarga.toFixed(2)}% do faturamento</div>
-            </div>
+
+                {/* ── Impacto da Reforma Tributária ── */}
+                <div style={{height:1,background:C.border,margin:"10px 0 8px"}}/>
+                <div style={{fontFamily:F.sans,fontSize:9,color:C.text3,letterSpacing:0.6,textTransform:"uppercase",marginBottom:6}}>Impacto da Reforma Tributária</div>
+                {[
+                  {rotulo:"Hoje",      desc:"PIS+COFINS 3,65%", val:hoje,    variacao:null, cor:C.text3, ativo:false},
+                  {rotulo:String(ano), desc:m.label,            val:liqAno,  variacao:vAno, cor:colAno,  ativo:true },
+                  {rotulo:"2033",      desc:"IVA Dual pleno",   val:liq2033, variacao:v33,  cor:col33,   ativo:false},
+                ].map((row,i)=>(
+                  <div key={i} style={{
+                    display:"flex",justifyContent:"space-between",alignItems:"center",
+                    padding:"6px 8px",marginBottom:3,borderRadius:2,
+                    background:row.ativo?row.cor+"11":C.bg2,
+                    border:"1px solid "+(row.ativo?row.cor+"44":C.border),
+                    borderLeft:"3px solid "+(row.ativo?row.cor:C.text3+"44"),
+                  }}>
+                    <div>
+                      <span style={{fontFamily:F.mono,fontSize:10,color:row.ativo?row.cor:C.text2,marginRight:8}}>{row.rotulo}</span>
+                      <span style={{fontFamily:F.sans,fontSize:9,color:C.text3}}>{row.desc}</span>
+                    </div>
+                    <div style={{display:"flex",alignItems:"center",gap:12}}>
+                      <span style={{fontFamily:F.mono,fontSize:11,color:row.ativo?row.cor:C.text}}>
+                        R$ {row.val.toLocaleString("pt-BR",{maximumFractionDigits:0})}
+                      </span>
+                      <span style={{fontFamily:F.mono,fontSize:10,color:row.cor,minWidth:54,textAlign:"right"}}>
+                        {row.variacao===null?"referência":(row.variacao>0?"▲ +":"▼ ")+Math.abs(row.variacao).toFixed(0)+"%"}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
 
             {/* KPIs */}
             <div style={{display:"grid",gridTemplateColumns:isMob?"1fr":"repeat(3,1fr)",gap:8,marginBottom:12}}>
@@ -1830,129 +1856,8 @@ function Oracle(){
                 )}
               </div>
             </div>
-              </div>{/* /Col A */}
-
-              {/* Col B — Análise de impacto */}
-              <div style={{padding:"14px 16px",display:"flex",flexDirection:"column",gap:12}}>
-                <SL>Análise de impacto</SL>
-
-                {/* O que impacta */}
-                <div>
-                  <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,marginBottom:6,letterSpacing:0.5,textTransform:"uppercase"}}>O que impacta</div>
-                  <div style={{display:"flex",flexDirection:"column",gap:4}}>
-                    <div style={{padding:"7px 10px",background:C.redLt,borderLeft:"2px solid "+C.red,borderRadius:2}}>
-                      <div style={{fontFamily:F.sans,fontSize:9,color:C.red}}>Frete nacional tributável</div>
-                      <div style={{fontFamily:F.mono,fontSize:11,color:C.text,marginTop:2}}>{100-pctExportacao}% do faturamento</div>
-                      <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginTop:2}}>Base de cálculo CBS + IBS</div>
-                    </div>
-                    {usaFrota&&Object.values(insumosAtivos).some(Boolean)&&(
-                      <div style={{padding:"7px 10px",background:C.greenLt,borderLeft:"2px solid "+C.green,borderRadius:2}}>
-                        <div style={{fontFamily:F.sans,fontSize:9,color:C.green}}>Insumos frota com NF</div>
-                        <div style={{fontFamily:F.mono,fontSize:11,color:C.text,marginTop:2}}>crédito CBS {m.cbs}%</div>
-                        <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginTop:2}}>Diesel, pneus, peças, manutenção</div>
-                      </div>
-                    )}
-                    {usaTerceiros&&(
-                      <div style={{padding:"7px 10px",background:C.amberLt,borderLeft:"2px solid "+C.amber,borderRadius:2}}>
-                        <div style={{fontFamily:F.sans,fontSize:9,color:C.amber}}>Subcontratados ({pctTerceiros}%)</div>
-                        <div style={{fontFamily:F.mono,fontSize:11,color:C.text,marginTop:2}}>crédito médio {cbsMedTerceiros.toFixed(2)}%</div>
-                        <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginTop:2}}>Depende do regime do prestador</div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* O que não impacta */}
-                <div>
-                  <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,marginBottom:6,letterSpacing:0.5,textTransform:"uppercase"}}>O que não impacta</div>
-                  <div style={{display:"flex",flexDirection:"column",gap:4}}>
-                    {pctExportacao>0&&(
-                      <div style={{padding:"7px 10px",background:C.greenLt,borderLeft:"2px solid "+C.green,borderRadius:2}}>
-                        <div style={{fontFamily:F.sans,fontSize:9,color:C.green}}>Exportação — isenta</div>
-                        <div style={{fontFamily:F.mono,fontSize:11,color:C.text,marginTop:2}}>{pctExportacao}% do faturamento</div>
-                        <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginTop:2}}>Créditos mantidos — ressarcimento possível</div>
-                      </div>
-                    )}
-                    {[
-                      {l:"Salários e encargos",  d:"Relação empregatícia — fora da base CBS/IBS"},
-                      {l:"Despesas financeiras", d:"Juros e tarifas bancárias"},
-                      {l:"PIS + COFINS",         d:"Extintos a partir de jan/2027"},
-                    ].map((item,i)=>(
-                      <div key={i} style={{padding:"7px 10px",background:C.bg2,borderLeft:"2px solid "+C.border,borderRadius:2}}>
-                        <div style={{fontFamily:F.sans,fontSize:9,color:C.text2}}>{item.l}</div>
-                        <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginTop:2}}>{item.d}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Como impacta */}
-                <div>
-                  <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,marginBottom:6,letterSpacing:0.5,textTransform:"uppercase"}}>Como impacta</div>
-                  <div style={{display:"flex",flexDirection:"column",gap:4}}>
-                    {[
-                      {l:"Alíquota nominal",   v:m.total+"%",             c:m.cor,
-                       d:"CBS "+m.cbs+"% + IBS "+(m.ibs>0?m.ibs+"%":"—")},
-                      {l:"Alíquota efetiva",   v:pctCarga.toFixed(2)+"%", c:pctCarga<m.total?C.green:C.red,
-                       d:"sobre faturamento, com créditos"},
-                      {l:"Eficiência crédito", v:eficCred.toFixed(0)+"%", c:eficCred>50?C.green:C.amber,
-                       d:credTot>0?"R$ "+credTot.toLocaleString("pt-BR",{maximumFractionDigits:0})+"/mês recuperado":"Nenhum crédito ativo"},
-                    ].map((item,i)=>(
-                      <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",padding:"7px 10px",background:C.bg2,borderRadius:2}}>
-                        <div>
-                          <div style={{fontFamily:F.sans,fontSize:9,color:C.text2}}>{item.l}</div>
-                          <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginTop:2}}>{item.d}</div>
-                        </div>
-                        <span style={{fontFamily:F.mono,fontSize:13,color:item.c,marginLeft:8,flexShrink:0}}>{item.v}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>{/* /Col B */}
-            </div>{/* /2-col grid */}
-
-            {/* ── Comparativo Hoje / Ano / 2033 ── */}
-            <div style={{borderBottom:"1px solid "+C.border}}>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,padding:"12px 16px"}}>
-                <div style={{padding:"12px",background:C.bg2,border:"1px solid "+C.border,borderTop:"3px solid "+C.text3}}>
-                  <div style={{fontFamily:F.sans,fontSize:9,color:C.text3,letterSpacing:0.8,marginBottom:6,textTransform:"uppercase"}}>Hoje</div>
-                  <div style={{fontFamily:F.mono,fontSize:isMob?15:20,color:C.text,lineHeight:1}}>R$ {hoje.toLocaleString("pt-BR",{maximumFractionDigits:0})}</div>
-                  <div style={{fontFamily:F.sans,fontSize:9,color:C.text3,marginTop:4}}>por mês</div>
-                  {bar(hoje,C.text3)}
-                  <div style={{fontFamily:F.mono,fontSize:9,color:C.text3,marginTop:6}}>R$ {(hoje*12).toLocaleString("pt-BR",{maximumFractionDigits:0})}/ano</div>
-                  <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginTop:3}}>PIS+COFINS 3,65%</div>
-                </div>
-                <div style={{padding:"12px",background:vAno>0?C.redLt:C.greenLt,border:"1px solid "+(vAno>0?C.red+"44":C.green+"44"),borderTop:"3px solid "+colAno}}>
-                  <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,letterSpacing:0.8,marginBottom:6,textTransform:"uppercase"}}>{ano} — {m.label}</div>
-                  <div style={{fontFamily:F.mono,fontSize:isMob?15:20,color:colAno,lineHeight:1}}>R$ {liqAno.toLocaleString("pt-BR",{maximumFractionDigits:0})}</div>
-                  <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,marginTop:4}}>por mês</div>
-                  {bar(liqAno,colAno)}
-                  <div style={{fontFamily:F.mono,fontSize:10,color:colAno,marginTop:6}}>{vAno>0?"▲ +":"▼ "}{Math.abs(vAno).toFixed(0)}% vs. hoje</div>
-                  <div style={{fontFamily:F.mono,fontSize:9,color:C.text3,marginTop:2}}>R$ {(liqAno*12).toLocaleString("pt-BR",{maximumFractionDigits:0})}/ano</div>
-                </div>
-                <div style={{padding:"12px",background:v33>0?C.redLt:C.greenLt,border:"1px solid "+(v33>0?C.red+"44":C.green+"44"),borderTop:"3px solid "+col33}}>
-                  <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,letterSpacing:0.8,marginBottom:6,textTransform:"uppercase"}}>2033 — IVA Dual</div>
-                  <div style={{fontFamily:F.mono,fontSize:isMob?15:20,color:col33,lineHeight:1}}>R$ {liq2033.toLocaleString("pt-BR",{maximumFractionDigits:0})}</div>
-                  <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,marginTop:4}}>por mês</div>
-                  {bar(liq2033,col33)}
-                  <div style={{fontFamily:F.mono,fontSize:10,color:col33,marginTop:6}}>{v33>0?"▲ +":"▼ "}{Math.abs(v33).toFixed(0)}% vs. hoje</div>
-                  <div style={{fontFamily:F.mono,fontSize:9,color:C.text3,marginTop:2}}>R$ {(liq2033*12).toLocaleString("pt-BR",{maximumFractionDigits:0})}/ano</div>
-                </div>
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:1,borderTop:"1px solid "+C.border,margin:"0 16px 12px"}}>
-                {[
-                  {l:"Por R$ 1.000 faturados",v1:`R$ ${hoje1k.toFixed(2)}`,v2:`R$ ${por1k.toFixed(2)} em ${ano}`,c:colAno},
-                  {l:"Créditos recuperados",  v1:`R$ ${credTot.toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês`,v2:`${eficCred.toFixed(0)}% do débito`,c:C.green},
-                  {l:"Carga efetiva s/ fat.", v1:`${(hoje/frete*100).toFixed(2)}% hoje`,v2:`${(liqAno/frete*100).toFixed(2)}% em ${ano}`,c:colAno},
-                ].map((k,i)=>(
-                  <div key={i} style={{padding:"10px 12px",background:C.bg2}}>
-                    <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginBottom:4,textTransform:"uppercase",letterSpacing:0.6}}>{k.l}</div>
-                    <div style={{fontFamily:F.mono,fontSize:11,color:C.text}}>{k.v1}</div>
-                    <div style={{fontFamily:F.mono,fontSize:10,color:k.c,marginTop:2}}>{k.v2}</div>
-                  </div>
-                ))}
-              </div>
             </div>
+
 
             {/* Argumento comercial */}
             <div style={{padding:"12px 16px",background:C.brandLt,borderBottom:"1px solid "+C.brand+"33"}}>
