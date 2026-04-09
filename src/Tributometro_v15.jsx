@@ -1227,32 +1227,6 @@ function Oracle(){
 
           <D my={8}/>
 
-          {/* Cenários rápidos */}
-          <div style={{fontFamily:F.sans,fontSize:10,color:C.text2,marginBottom:6}}>Cenários rápidos</div>
-          <div style={{display:"flex",flexDirection:"column",gap:4}}>
-            {SCENARIOS.map((sc,i)=>(
-              <button key={i}
-                onClick={()=>{
-                  setFrete(sc.frete); setRf(sc.frete.toLocaleString("pt-BR"));
-                  setFrota(sc.frota); setRv(String(sc.frota));
-                  setRegime(sc.regime);
-                  setUsaFrota(sc.fp>0); setPctFrota(sc.fp); setRPF(String(sc.fp));
-                  setUsaTerceiros(sc.ft>0); setPctTerceiros(sc.ft); setRPT(String(sc.ft));
-                  setUsaAgregados(sc.fa>0); setPctAgregados(sc.fa); setRPA(String(sc.fa));
-                  setMixAutonomo(sc.mA); setRA(String(sc.mA));
-                  setMixSN(sc.mS); setRS(String(sc.mS));
-                  setMixLucro(sc.mL); setRL(String(sc.mL));
-                  setPctExportacao(sc.exp); setRExp(String(sc.exp));
-                }}
-                style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",background:C.bg2,border:"1px solid "+C.border,borderRadius:2,cursor:"pointer",transition:"all 0.12s"}}>
-                <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                  <span style={{fontFamily:F.sans,fontSize:10,color:sc.cor,fontWeight:500}}>{sc.p}</span>
-                  <span style={{fontFamily:F.mono,fontSize:9,color:C.text3}}>R${(sc.frete/1000).toFixed(0)}k · {sc.regime}</span>
-                </div>
-                <span style={{fontFamily:F.sans,fontSize:10,color:C.brand}}>↗</span>
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Coluna direita — 3 Telas + Resultado */}
@@ -1733,86 +1707,128 @@ function Oracle(){
               insumosAtivosTerceiros,insumosCustoTerceiros,
               usaAgregados,pctAgregados,regimeAgregado,margemAgregados,
               insumosAtivosAgregados,insumosCustoAgregados};
-            const liq2027 = calcReforma({...p,cbsAliq:9.3, ibsAliq:0   }).totalRecolher;
-            const liq2033 = calcReforma({...p,cbsAliq:9.3, ibsAliq:18.7}).totalRecolher;
-            const v27 = (liq2027-hoje)/hoje*100;
-            const v33 = (liq2033-hoje)/hoje*100;
-            const col27 = v27>0?C.red:C.green;
-            const col33 = v33>0?C.red:C.green;
-            const max3 = Math.max(hoje,liq2027,liq2033,1);
+            // ano selecionado (reativo ao seletor de ano)
+            const liqAno  = reforma.totalRecolher;
+            const liq2033 = calcReforma({...p,cbsAliq:9.3,ibsAliq:18.7}).totalRecolher;
+            const vAno = (liqAno-hoje)/hoje*100;
+            const v33  = (liq2033-hoje)/hoje*100;
+            const colAno = vAno>0?C.red:C.green;
+            const col33  = v33>0?C.red:C.green;
+            const debito = reforma.cbsDebito + reforma.ibsDebito;
+            const credTot = reforma.totalCreditoCBS + reforma.totalCreditoIBS;
+            const eficCred = debito>0 ? (credTot/debito*100) : 0;
+            const por1k = liqAno / frete * 1000;
+            const hoje1k = hoje / frete * 1000;
+            const max3 = Math.max(hoje,liqAno,liq2033,1);
             const bar = (val,col) => (
-              <div style={{height:8,borderRadius:2,background:C.bg3,overflow:"hidden",marginTop:6}}>
-                <div style={{height:"100%",width:(val/max3*100)+"%",background:col,transition:"width 0.6s"}}/>
+              <div style={{height:6,borderRadius:2,background:C.bg3,overflow:"hidden",marginTop:6}}>
+                <div style={{height:"100%",width:(val/max3*100)+"%",background:col,transition:"width 0.5s"}}/>
               </div>
             );
-            // oportunidades geradas pelos dados
             const ops = [];
-            const credTot = reforma.totalCreditoCBS+reforma.totalCreditoIBS;
-            if (credTot>0) ops.push({cor:C.green, txt:`Você já aproveita R$ ${credTot.toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês em créditos. Cada real a mais em insumos com nota reduz o tributo.`});
-            if (usaTerceiros && mixLucro<40) ops.push({cor:C.amber, txt:`${100-mixLucro}% dos seus terceiros não são LP/LR. Migrar fornecedores para Lucro Presumido/Real pode elevar o crédito CBS de ${calcCBSCredito(mixAutonomo,mixSN,mixLucro).toFixed(2)}% para até 9,3%.`});
-            if (pctExportacao>0) ops.push({cor:C.blue, txt:`${pctExportacao}% da receita é exportação — isento de CBS e IBS. Os créditos sobre insumos são mantidos e podem ser restituídos.`});
-            if (compTotal!==100&&compTotal>0) ops.push({cor:C.red, txt:`Composição operacional: ${compTotal}% (precisa chegar a 100%). Ajuste para uma simulação precisa.`});
-            if (ops.length===0) ops.push({cor:C.brand, txt:"Configure os insumos e a composição operacional para ver as oportunidades de redução de carga."});
-
+            if (credTot>0) ops.push({cor:C.green,
+              titulo:"Créditos aproveitados",
+              txt:`R$ ${credTot.toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês — ${eficCred.toFixed(0)}% do débito total recuperado. Ampliar insumos com nota fiscal aumenta esse percentual.`});
+            if (usaTerceiros && mixLucro<40) ops.push({cor:C.amber,
+              titulo:"Oportunidade em terceiros",
+              txt:`Hoje ${mixLucro}% dos seus terceiros são LP/LR. Migrar para LP/LR eleva o crédito CBS de ${calcCBSCredito(mixAutonomo,mixSN,mixLucro).toFixed(2)}% para até 9,3% — impacto direto no resultado.`});
+            if (pctExportacao>0) ops.push({cor:C.blue,
+              titulo:`Exportação — ${pctExportacao}% isento`,
+              txt:`Receitas de exportação não geram débito de CBS/IBS, mas os créditos de insumos são mantidos e podem ser compensados ou restituídos.`});
+            if (vAno>20) ops.push({cor:C.red,
+              titulo:"Reajuste contratual necessário",
+              txt:`Com aumento de ${vAno.toFixed(0)}% no tributo em ${ano}, revise cláusulas de reajuste nos contratos de longo prazo para não comprimir a margem.`});
+            if (ops.length===0) ops.push({cor:C.brand,
+              titulo:"Configure os insumos",
+              txt:"Ative frota própria e marque os insumos com nota fiscal para ver as oportunidades de crédito."});
             return (
-              <div style={{background:"#12121E",borderTop:"3px solid "+C.brand}}>
+              <div style={{background:C.bg1,borderTop:"3px solid "+C.brand}}>
                 {/* Cabeçalho */}
-                <div style={{padding:"16px 16px 0"}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-                    <span style={{fontFamily:F.sans,fontSize:13,fontWeight:700,color:"#fff"}}>Impacto da Reforma — Resumo Executivo</span>
-                    <Bdg color={C.brand}>LC 214/2025</Bdg>
+                <div style={{padding:"14px 16px 0",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                  <div>
+                    <div style={{fontFamily:F.sans,fontSize:13,fontWeight:700,color:C.text}}>Impacto da Reforma — Resumo Executivo</div>
+                    <div style={{fontFamily:F.sans,fontSize:10,color:C.text2,marginTop:2}}>
+                      R$ {frete.toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês · {regime} · simulando {ano}
+                    </div>
                   </div>
-                  <div style={{fontFamily:F.sans,fontSize:10,color:"rgba(255,255,255,0.35)",marginBottom:14}}>
-                    Faturamento R$ {frete.toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês · {regime} · {compTotal}% composição
-                  </div>
+                  <Bdg color={C.brand}>LC 214/2025</Bdg>
                 </div>
 
                 {/* 3 blocos comparativos */}
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:1,margin:"0 0 1px"}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,padding:"12px 16px"}}>
+                  {/* HOJE */}
+                  <div style={{padding:"12px",background:C.bg2,border:"1px solid "+C.border,borderTop:"3px solid "+C.text3}}>
+                    <div style={{fontFamily:F.sans,fontSize:9,color:C.text3,letterSpacing:0.8,marginBottom:6,textTransform:"uppercase"}}>Hoje</div>
+                    <div style={{fontFamily:F.mono,fontSize:isMob?15:20,fontWeight:700,color:C.text,lineHeight:1}}>
+                      R$ {hoje.toLocaleString("pt-BR",{maximumFractionDigits:0})}
+                    </div>
+                    <div style={{fontFamily:F.sans,fontSize:9,color:C.text3,marginTop:4}}>por mês</div>
+                    {bar(hoje, C.text3)}
+                    <div style={{fontFamily:F.mono,fontSize:9,color:C.text3,marginTop:6}}>R$ {(hoje*12).toLocaleString("pt-BR",{maximumFractionDigits:0})}/ano</div>
+                    <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginTop:3}}>PIS+COFINS 3,65%</div>
+                  </div>
+                  {/* ANO SELECIONADO */}
+                  <div style={{padding:"12px",background:vAno>0?C.redLt:C.greenLt,border:"1px solid "+(vAno>0?C.red+"44":C.green+"44"),borderTop:"3px solid "+colAno}}>
+                    <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,letterSpacing:0.8,marginBottom:6,textTransform:"uppercase"}}>{ano} — {m.label}</div>
+                    <div style={{fontFamily:F.mono,fontSize:isMob?15:20,fontWeight:700,color:colAno,lineHeight:1}}>
+                      R$ {liqAno.toLocaleString("pt-BR",{maximumFractionDigits:0})}
+                    </div>
+                    <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,marginTop:4}}>por mês</div>
+                    {bar(liqAno, colAno)}
+                    <div style={{fontFamily:F.mono,fontSize:11,fontWeight:700,color:colAno,marginTop:6}}>
+                      {vAno>0?"▲ +":"▼ "}{Math.abs(vAno).toFixed(0)}% vs. hoje
+                    </div>
+                    <div style={{fontFamily:F.mono,fontSize:9,color:C.text3,marginTop:2}}>R$ {(liqAno*12).toLocaleString("pt-BR",{maximumFractionDigits:0})}/ano</div>
+                  </div>
+                  {/* 2033 */}
+                  <div style={{padding:"12px",background:v33>0?C.redLt:C.greenLt,border:"1px solid "+(v33>0?C.red+"44":C.green+"44"),borderTop:"3px solid "+col33}}>
+                    <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,letterSpacing:0.8,marginBottom:6,textTransform:"uppercase"}}>2033 — IVA Dual</div>
+                    <div style={{fontFamily:F.mono,fontSize:isMob?15:20,fontWeight:700,color:col33,lineHeight:1}}>
+                      R$ {liq2033.toLocaleString("pt-BR",{maximumFractionDigits:0})}
+                    </div>
+                    <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,marginTop:4}}>por mês</div>
+                    {bar(liq2033, col33)}
+                    <div style={{fontFamily:F.mono,fontSize:11,fontWeight:700,color:col33,marginTop:6}}>
+                      {v33>0?"▲ +":"▼ "}{Math.abs(v33).toFixed(0)}% vs. hoje
+                    </div>
+                    <div style={{fontFamily:F.mono,fontSize:9,color:C.text3,marginTop:2}}>R$ {(liq2033*12).toLocaleString("pt-BR",{maximumFractionDigits:0})}/ano</div>
+                  </div>
+                </div>
+
+                {/* KPIs rápidos */}
+                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:1,borderTop:"1px solid "+C.border,borderBottom:"1px solid "+C.border}}>
                   {[
-                    {label:"HOJE",sub:"PIS+COFINS atual",val:hoje,  cor:"rgba(255,255,255,0.5)",destaque:false},
-                    {label:"2027",sub:"CBS líquido",      val:liq2027,cor:col27,              destaque:true},
-                    {label:"2033",sub:"IVA Dual pleno",   val:liq2033,cor:col33,              destaque:true},
-                  ].map((bl,i)=>(
-                    <div key={i} style={{padding:"16px",background:i===0?"rgba(255,255,255,0.04)":bl.cor==="#DC2626"?"rgba(220,38,38,0.1)":"rgba(22,163,74,0.1)"}}>
-                      <div style={{fontFamily:F.mono,fontSize:9,color:"rgba(255,255,255,0.35)",letterSpacing:1.5,marginBottom:6}}>{bl.label}</div>
-                      <div style={{fontFamily:F.mono,fontSize:isMob?16:22,fontWeight:700,color:i===0?"#fff":bl.cor,lineHeight:1}}>
-                        R$ {bl.val.toLocaleString("pt-BR",{maximumFractionDigits:0})}
-                      </div>
-                      <div style={{fontFamily:F.sans,fontSize:9,color:"rgba(255,255,255,0.3)",marginTop:4}}>{bl.sub}</div>
-                      {bar(bl.val, i===0?"rgba(255,255,255,0.25)":bl.cor)}
-                      {i>0 && (
-                        <div style={{marginTop:8,fontFamily:F.mono,fontSize:11,fontWeight:700,color:bl.cor}}>
-                          {bl.cor===C.red?"▲ +":"▼ "}{Math.abs(i===1?v27:v33).toFixed(0)}% vs. hoje
-                        </div>
-                      )}
-                      <div style={{fontFamily:F.mono,fontSize:9,color:"rgba(255,255,255,0.25)",marginTop:2}}>
-                        R$ {(bl.val*12).toLocaleString("pt-BR",{maximumFractionDigits:0})}/ano
-                      </div>
+                    {l:"Por R$ 1.000 faturados",v1:`R$ ${hoje1k.toFixed(2)}`,v2:`R$ ${por1k.toFixed(2)} em ${ano}`,c:colAno},
+                    {l:"Créditos recuperados",  v1:`R$ ${credTot.toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês`,v2:`${eficCred.toFixed(0)}% do débito total`,c:C.green},
+                    {l:"Carga efetiva s/ fat.", v1:`${(hoje/frete*100).toFixed(2)}% hoje`,v2:`${(liqAno/frete*100).toFixed(2)}% em ${ano}`,c:colAno},
+                  ].map((k,i)=>(
+                    <div key={i} style={{padding:"10px 12px",background:C.bg2}}>
+                      <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginBottom:4,textTransform:"uppercase",letterSpacing:0.6}}>{k.l}</div>
+                      <div style={{fontFamily:F.mono,fontSize:11,fontWeight:600,color:C.text}}>{k.v1}</div>
+                      <div style={{fontFamily:F.mono,fontSize:10,color:k.c,marginTop:2}}>{k.v2}</div>
                     </div>
                   ))}
                 </div>
 
-                {/* Frase de impacto */}
-                <div style={{padding:"14px 16px",background:"rgba(255,130,0,0.07)",borderTop:"1px solid rgba(255,130,0,0.15)",borderBottom:"1px solid rgba(255,130,0,0.15)"}}>
-                  <div style={{fontFamily:F.sans,fontSize:9,color:C.brand,letterSpacing:1,marginBottom:6,textTransform:"uppercase",fontWeight:600}}>O que isso significa para você</div>
-                  <div style={{fontFamily:F.sans,fontSize:12,color:"rgba(255,255,255,0.85)",lineHeight:1.7}}>
-                    {v27<=0 && v33<=0 &&
-                      `Em 2027 o tributo cai de R$ ${hoje.toLocaleString("pt-BR",{maximumFractionDigits:0})} para R$ ${liq2027.toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês — uma redução de ${Math.abs(v27).toFixed(0)}%. Mas em 2033, com o IVA Dual completo, ainda fica em R$ ${liq2033.toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês (${Math.abs(v33).toFixed(0)}% abaixo do patamar atual).`}
-                    {v27>0 && v33>0 &&
-                      `Em 2027 a carga sobe de R$ ${hoje.toLocaleString("pt-BR",{maximumFractionDigits:0})} para R$ ${liq2027.toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês (+${v27.toFixed(0)}%). Em 2033, com IVA Dual completo, chega a R$ ${liq2033.toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês — um acréscimo de R$ ${(liq2033-hoje).toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês sobre o que você paga hoje.`}
-                    {v27<=0 && v33>0 &&
-                      `Em 2027 o tributo cai ${Math.abs(v27).toFixed(0)}% para R$ ${liq2027.toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês — uma janela de economia. Em 2033, com IVA Dual pleno, sobe para R$ ${liq2033.toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês, +${v33.toFixed(0)}% sobre hoje. Agir agora garante vantagem nessa transição.`}
+                {/* Frase comercial */}
+                <div style={{padding:"12px 16px",background:C.brandLt,borderBottom:"1px solid "+C.brand+"33"}}>
+                  <div style={{fontFamily:F.sans,fontSize:9,color:C.brand,letterSpacing:0.8,marginBottom:5,fontWeight:600,textTransform:"uppercase"}}>Argumento comercial — {ano}</div>
+                  <div style={{fontFamily:F.sans,fontSize:12,color:C.text,lineHeight:1.7}}>
+                    {vAno<=0
+                      ? `Em ${ano}, com os créditos de CBS sobre insumos, o tributo cai de R$ ${hoje.toLocaleString("pt-BR",{maximumFractionDigits:0})} para R$ ${liqAno.toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês — uma redução de ${Math.abs(vAno).toFixed(0)}%. Quem mapear bem os créditos agora sai na frente.`
+                      : `Em ${ano} a carga tributária sobe de R$ ${hoje.toLocaleString("pt-BR",{maximumFractionDigits:0})} para R$ ${liqAno.toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês — um aumento de ${vAno.toFixed(0)}%, equivalente a R$ ${((liqAno-hoje)*12).toLocaleString("pt-BR",{maximumFractionDigits:0})} por ano. Preparar-se antes de ${ano} é a diferença entre absorver o impacto ou repassá-lo.`
+                    }
                   </div>
                 </div>
 
-                {/* Oportunidades */}
-                <div style={{padding:"12px 16px 16px"}}>
-                  <div style={{fontFamily:F.sans,fontSize:9,color:"rgba(255,255,255,0.35)",letterSpacing:1,marginBottom:8,textTransform:"uppercase"}}>Pontos de atenção</div>
+                {/* Pontos de atenção */}
+                <div style={{padding:"12px 16px 14px"}}>
+                  <SL>Pontos de atenção</SL>
                   <div style={{display:"flex",flexDirection:"column",gap:6}}>
                     {ops.map((o,i)=>(
-                      <div key={i} style={{display:"flex",gap:10,padding:"8px 10px",background:"rgba(255,255,255,0.04)",borderLeft:"2px solid "+o.cor}}>
-                        <div style={{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,0.65)",lineHeight:1.5}}>{o.txt}</div>
+                      <div key={i} style={{padding:"8px 10px",background:C.bg2,border:"1px solid "+C.border,borderLeft:"3px solid "+o.cor}}>
+                        <div style={{fontFamily:F.sans,fontSize:9,color:o.cor,fontWeight:600,marginBottom:2,textTransform:"uppercase",letterSpacing:0.5}}>{o.titulo}</div>
+                        <div style={{fontFamily:F.sans,fontSize:11,color:C.text2,lineHeight:1.5}}>{o.txt}</div>
                       </div>
                     ))}
                   </div>
