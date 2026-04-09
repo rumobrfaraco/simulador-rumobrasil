@@ -1024,9 +1024,9 @@ function Oracle(){
     });
     y += 23;
 
-    // ── Seção 4: Comparativo Antes × Depois ──
-    if (y > 210) { doc.addPage(); drawFrame(); y = 46; }
-    section("Comparativo — Antes e Depois da Reforma");
+    // ── Seção 4: Comparativo CBS+IBS ──
+    if (y + 95 > 278) { doc.addPage(); drawFrame(); y = 46; }
+    section("Comparativo CBS+IBS — 2027 a 2033");
 
     const liq2027pdf = calcReforma({
       frete, regime, pctExportacao,
@@ -1049,76 +1049,84 @@ function Oracle(){
     const vAnoPDF = (reforma.totalRecolher - liq2027pdf) / Math.max(liq2027pdf, 1) * 100;
     const v33PDF  = (liq2033pdf - liq2027pdf) / Math.max(liq2027pdf, 1) * 100;
 
+    // 3 colunas comparativas — altura fixa 34mm
+    const CMP_H = 34;
     const bxCmp = (cw - 6) / 3;
     [
-      {titulo:"2027 — CBS Ativa",       sub:"CBS 9,3% · IBS ainda não vigora", valor:liq2027pdf,            varP:null,    cor:[29,91,215]},
-      {titulo:String(m.ano)+" — "+m.label, sub:"CBS "+m.cbs+"% + IBS "+m.ibs+"%",  valor:reforma.totalRecolher, varP:vAnoPDF, cor:OR},
-      {titulo:"2033 — IVA Dual Pleno",  sub:"CBS 9,3% + IBS 18,7%",            valor:liq2033pdf,            varP:v33PDF,  cor:[220,38,38]},
+      {titulo:"2027 — CBS Ativa",          sub:"CBS 9,3% · IBS ainda não vigora",  valor:liq2027pdf,            varP:null,    cor:[29,91,215]},
+      {titulo:String(m.ano)+" — "+m.label, sub:"CBS "+m.cbs+"% + IBS "+m.ibs+"%", valor:reforma.totalRecolher, varP:vAnoPDF, cor:OR},
+      {titulo:"2033 — IVA Dual Pleno",     sub:"CBS 9,3% + IBS 18,7%",            valor:liq2033pdf,            varP:v33PDF,  cor:[220,38,38]},
     ].forEach((bx, i) => {
       const bxLeft = mg + i * (bxCmp + 3);
       doc.setFillColor(...BG); doc.setDrawColor(...BD); doc.setLineWidth(0.25);
-      doc.rect(bxLeft, y, bxCmp, 28, "FD");
-      doc.setFillColor(...bx.cor); doc.rect(bxLeft, y, bxCmp, 2.5, "F");
+      doc.rect(bxLeft, y, bxCmp, CMP_H, "FD");
+      doc.setFillColor(...bx.cor);
+      doc.rect(bxLeft, y, bxCmp, 2.5, "F");
       doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(...bx.cor);
-      doc.text(bx.titulo, bxLeft + 3, y + 7);
+      doc.text(bx.titulo, bxLeft + 3, y + 8);
       doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(...LG);
       doc.splitTextToSize(bx.sub, bxCmp - 6).forEach((l, li) => {
-        doc.text(l, bxLeft + 3, y + 11 + li * 3.5);
+        doc.text(l, bxLeft + 3, y + 13 + li * 3.5);
       });
       doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(...DK);
-      doc.text(BRL(bx.valor), bxLeft + 3, y + 20);
+      doc.text(BRL(bx.valor), bxLeft + 3, y + 24);
       doc.setFont("helvetica","normal"); doc.setFontSize(6.5);
       if (bx.varP !== null) {
         const up = bx.varP > 0;
         doc.setTextColor(up ? 220 : 22, up ? 38 : 163, up ? 38 : 74);
-        doc.text((up ? "▲ +" : "▼ ") + Math.abs(bx.varP).toFixed(0) + "% vs. 2027", bxLeft + 3, y + 25);
+        doc.text((up ? "▲ +" : "▼ ") + Math.abs(bx.varP).toFixed(0) + "% vs. 2027", bxLeft + 3, y + 30);
       } else {
         doc.setTextColor(...LG);
-        doc.text(BRL(liq2027pdf*12) + "/ano", bxLeft + 3, y + 25);
+        doc.text(BRL(liq2027pdf*12) + "/ano", bxLeft + 3, y + 30);
       }
     });
-    y += 33;
+    y += CMP_H + 6;
 
-    // Narrativa comercial
+    // Narrativa comercial — altura dinâmica
     const credTotPDF = reforma.totalCreditoCBS + reforma.totalCreditoIBS;
     const debTotPDF  = reforma.cbsDebito + reforma.ibsDebito;
     const eficPDF    = debTotPDF > 0 ? credTotPDF / debTotPDF * 100 : 0;
-    doc.setFillColor(255, 244, 229);
-    doc.rect(mg, y, cw, 3, "F");
-    doc.setFillColor(...OR); doc.rect(mg, y, 2.5, 3, "F");
-    y += 6;
-    doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(...OR);
-    doc.text("O que muda para o seu negócio", mg + 5, y); y += 5;
-    doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(...GR);
     const narrativaTxt = vAnoPDF > 0
       ? `Em ${m.ano}, o tributo CBS+IBS sobe de ${BRL(liq2027pdf)} (2027) para ${BRL(reforma.totalRecolher)}/mês (+${vAnoPDF.toFixed(0)}%), com IBS entrando de forma escalonada. Em 2033 chegará a ${BRL(liq2033pdf)}/mês (+${v33PDF.toFixed(0)}% vs. 2027).`
       : `Em ${m.ano}, com créditos sobre insumos, o tributo CBS+IBS é ${BRL(reforma.totalRecolher)}/mês. Os ${BRL(credTotPDF)}/mês em créditos compensam ${eficPDF.toFixed(0)}% do débito total — quem mapear os insumos sai na frente.`;
-    doc.splitTextToSize(narrativaTxt, cw - 10).forEach(l => { doc.text(l, mg + 5, y); y += 4.3; });
-    y += 4;
+    const nLines = doc.splitTextToSize(narrativaTxt, cw - 12);
+    const nBoxH = 12 + nLines.length * 4.5;
+    if (y + nBoxH > 278) { doc.addPage(); drawFrame(); y = 46; }
+    doc.setFillColor(255, 244, 229);
+    doc.rect(mg, y, cw, nBoxH, "F");
+    doc.setFillColor(...OR); doc.rect(mg, y, 3, nBoxH, "F");
+    doc.setFont("helvetica","bold"); doc.setFontSize(8.5); doc.setTextColor(...OR);
+    doc.text("O que muda para o seu negócio", mg + 6, y + 7);
+    doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(...DK);
+    let ny = y + 12;
+    nLines.forEach(l => { doc.text(l, mg + 6, ny); ny += 4.5; });
+    y += nBoxH + 5;
 
-    // KPIs rápidos
-    const kpiDataPDF = [
-      {l:"Por R$ 1.000 faturados",   v1:"2027: R$ "+(liq2027pdf/frete*1000).toFixed(2),   v2:"Em "+m.ano+": R$ "+(reforma.totalRecolher/frete*1000).toFixed(2)},
-      {l:"Créditos recuperados",      v1:BRL(credTotPDF)+"/mês",                            v2:eficPDF.toFixed(0)+"% do débito total"},
-      {l:"Carga efetiva s/ fat.",     v1:"2027: "+(liq2027pdf/frete*100).toFixed(2)+"%",    v2:"Em "+m.ano+": "+(reforma.totalRecolher/frete*100).toFixed(2)+"%"},
-    ];
+    // KPIs rápidos — 3 colunas, altura fixa 20mm
+    const KPI_H = 20;
     const kpiBxPDF = (cw - 6) / 3;
-    kpiDataPDF.forEach((k, i) => {
+    if (y + KPI_H > 278) { doc.addPage(); drawFrame(); y = 46; }
+    [
+      {l:"Por R$ 1.000 faturados",  v1:"2027: R$ "+(liq2027pdf/frete*1000).toFixed(2),  v2:"Em "+m.ano+": R$ "+(reforma.totalRecolher/frete*1000).toFixed(2)},
+      {l:"Créditos recuperados",    v1:BRL(credTotPDF)+"/mês",                           v2:eficPDF.toFixed(0)+"% do débito total"},
+      {l:"Carga efetiva s/ fat.",   v1:"2027: "+(liq2027pdf/frete*100).toFixed(2)+"%",   v2:"Em "+m.ano+": "+(reforma.totalRecolher/frete*100).toFixed(2)+"%"},
+    ].forEach((k, i) => {
       const kx = mg + i * (kpiBxPDF + 3);
       doc.setFillColor(...BG); doc.setDrawColor(...BD); doc.setLineWidth(0.25);
-      doc.rect(kx, y, kpiBxPDF, 16, "FD");
+      doc.rect(kx, y, kpiBxPDF, KPI_H, "FD");
       doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(...LG);
-      doc.text(k.l, kx + 3, y + 5);
+      doc.text(k.l, kx + 3, y + 6);
       doc.setFont("helvetica","bold"); doc.setFontSize(8.5); doc.setTextColor(...DK);
-      doc.text(k.v1, kx + 3, y + 10);
+      doc.text(k.v1, kx + 3, y + 12);
       doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(...OR);
-      doc.text(k.v2, kx + 3, y + 14.5);
+      doc.text(k.v2, kx + 3, y + 17.5);
     });
-    y += 22;
+    y += KPI_H + 8;
 
     // ── Seção 5: Projeção ──
-    if (y > 215) { doc.addPage(); drawFrame(); y = 46; }
+    if (y + 55 > 278) { doc.addPage(); drawFrame(); y = 46; }
     section("Projeção do Tributo Líquido — 2027 a 2033");
+    y += 2;
 
     const vals = MILES.map(mi => calcTot(mi));
     const maxV = Math.max(...vals, 1);
@@ -1137,49 +1145,51 @@ function Oracle(){
       doc.text(lbl, bx + bW2/2, y + barH - h - 1.5, {align:"center"});
       doc.text(String(mi.ano), bx + bW2/2, y + barH + 5, {align:"center"});
     });
-    y += barH + 12;
+    y += barH + 14;
 
-    // ── Seção 5: Análise e Recomendações ──
-    if (y > 235) { doc.addPage(); drawFrame(); y = 46; }
+    // ── Seção 6: Análise e Recomendações ──
+    if (y + 30 > 278) { doc.addPage(); drawFrame(); y = 46; }
     section("Análise e Recomendações");
+    y += 2;
 
     const recs = [];
-    if (regime === "Simples Nacional")
-      recs.push({t:"Atenção: Simples Nacional não aproveita créditos tributários",
-        d:`No Simples Nacional, o tomador de serviços não pode se creditar de CBS e IBS. A carga tributária efetiva é de ${Pct(pctCarga)} sobre a receita, sem possibilidade de recuperação via créditos.`});
     if (usaFrota && reforma.creditoCBS_frota + reforma.creditoIBS_frota > 0)
       recs.push({t:"Frota própria: créditos plenos sobre insumos operacionais",
-        d:`A frota própria gera ${BRL(reforma.creditoCBS_frota + reforma.creditoIBS_frota)}/mês em créditos de CBS e IBS sobre ${Object.values(insumosAtivos).filter(Boolean).length} insumos (diesel, pneus, peças, manutenção, pedágios). Recomenda-se mapear e ampliar o aproveitamento de insumos.`});
+        d:`A frota própria gera ${BRL(reforma.creditoCBS_frota + reforma.creditoIBS_frota)}/mês em créditos de CBS e IBS sobre ${Object.values(insumosAtivos).filter(Boolean).length} insumos ativos (diesel, pneus, peças, manutenção, pedágios).`});
     if (usaTerceiros) {
       const cbsM = calcCBSCredito(mixAutonomo, mixSN, mixLucro);
       recs.push({t:`Subcontratados: crédito CBS médio de ${cbsM.toFixed(2)}%`,
-        d:`Composição atual: ${mixAutonomo}% autônomos · ${mixSN}% Simples Nacional · ${mixLucro}% Lucro Presumido/Real. ${mixLucro < 30 ? "Ampliar a participação de prestadores no Lucro Presumido ou Real pode elevar significativamente os créditos recuperados." : "A composição está equilibrada para aproveitamento de créditos."}`});
+        d:`Composição atual: ${mixAutonomo}% autônomos · ${mixSN}% Simples Nacional · ${mixLucro}% Lucro Real. ${mixLucro < 30 ? "Ampliar participação de prestadores no Lucro Real eleva significativamente os créditos." : "Composição equilibrada para aproveitamento de créditos."}`});
     }
     if (pctExportacao > 0)
-      recs.push({t:`Exportações: ${pctExportacao}% da receita com imunidade tributária`,
-        d:"Receitas de exportação são isentas de CBS e IBS. Os créditos sobre insumos dessas operações são mantidos e podem ser ressarcidos, gerando caixa adicional."});
+      recs.push({t:`Exportações: ${pctExportacao}% isento de CBS e IBS`,
+        d:"Receitas de exportação não geram débito. Créditos sobre insumos são mantidos e podem ser ressarcidos, gerando caixa adicional."});
     recs.push({t:"Próximos passos: adequação à Reforma Tributária",
-      d:"Atualização dos layouts de CT-e e NF-e para os campos CBS/IBS (obrigatório a partir de 2027), certificação do TMS/ERP e revisão de contratos com cláusula de reajuste tributário. A Rumo Brasil está disponível para apoiar essa transição."});
+      d:"Atualização dos layouts de CT-e e NF-e para os campos CBS/IBS (obrigatório em 2027), certificação do TMS/ERP e revisão de contratos com cláusula de reajuste tributário."});
 
     recs.forEach(r => {
-      if (y > 262) { doc.addPage(); drawFrame(); y = 46; }
+      const tLines = doc.splitTextToSize(r.t, cw - 10);
+      const dLines = doc.splitTextToSize(r.d, cw - 10);
+      const recH = tLines.length * 5 + dLines.length * 4.5 + 8;
+      if (y + recH > 278) { doc.addPage(); drawFrame(); y = 46; }
       doc.setFillColor(...OR);
-      doc.circle(mg + 3, y, 1.2, "F");
+      doc.circle(mg + 3, y + 2, 1.2, "F");
       doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(...DK);
-      doc.splitTextToSize(r.t, cw - 10).forEach(l => { doc.text(l, mg + 7, y); y += 4.8; });
+      let ry = y;
+      tLines.forEach(l => { doc.text(l, mg + 7, ry); ry += 4.8; });
       doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(...GR);
-      doc.splitTextToSize(r.d, cw - 10).forEach(l => { doc.text(l, mg + 7, y); y += 4.3; });
-      y += 5;
+      dLines.forEach(l => { doc.text(l, mg + 7, ry); ry += 4.5; });
+      y = ry + 5;
     });
 
     // ── Plano de Ação ──
-    if (y > 230) { doc.addPage(); drawFrame(); y = 46; }
+    if (y + 20 > 278) { doc.addPage(); drawFrame(); y = 46; }
     doc.setFillColor(...OR); doc.rect(mg, y, 2.5, 7, "F");
     doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(...GR);
     doc.text("PLANO DE AÇÃO — COMO SE PREPARAR", mg + 5, y + 5);
-    y += 12;
+    y += 13;
     doc.setDrawColor(...BD); doc.setLineWidth(0.25);
-    doc.line(mg + 5, y - 1, W - mg, y - 1);
+    doc.line(mg, y - 1, W - mg, y - 1);
     y += 4;
 
     [
@@ -1189,7 +1199,7 @@ function Oracle(){
       {prazo:"Dez 2026", status:"URGENTE", cor:[220,38,38],
        acao:"Certificar TMS/ERP para emissão no novo padrão fiscal CBS/IBS",
        imp:"Risco de glosa de créditos e inconsistência fiscal em todo o período de transição"},
-      {prazo:"Jan 2027", status:"OPORT.", cor:[22,163,74],
+      {prazo:"Jan 2027", status:"OPORT.",  cor:[22,163,74],
        acao:"Mapear mix de fornecedores (autônomo/SN/LP-LR) para maximizar crédito CBS",
        imp:"Mix médio TRC = 3,73%. Cada 10pp a mais em LP/LR aumenta o crédito em ~0,75%"},
       {prazo:"Jun 2027", status:"ATENÇÃO", cor:[180,83,9],
@@ -1199,21 +1209,26 @@ function Oracle(){
        acao:"Capacitar equipe fiscal e comercial nas regras CBS, IBS e créditos",
        imp:"Apenas 23% das transportadoras iniciaram a adaptação (ABCAM 2025)"},
     ].forEach(a => {
-      if (y > 260) { doc.addPage(); drawFrame(); y = 46; }
+      const aLines = doc.splitTextToSize(a.acao, cw - 22);
+      const iLines = doc.splitTextToSize("Impacto: " + a.imp, cw - 22);
+      const boxH = 9 + aLines.length * 4 + iLines.length * 3.8 + 4;
+      if (y + boxH > 278) { doc.addPage(); drawFrame(); y = 46; }
       doc.setFillColor(...BG); doc.setDrawColor(...BD); doc.setLineWidth(0.2);
-      doc.rect(mg + 5, y, cw - 5, 15, "FD");
-      doc.setFillColor(...a.cor); doc.rect(mg + 5, y, 2, 15, "F");
+      doc.rect(mg, y, cw, boxH, "FD");
+      doc.setFillColor(...a.cor); doc.rect(mg, y, 2.5, boxH, "F");
       doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(...a.cor);
-      doc.text(a.status, mg + 10, y + 5.5);
+      doc.text(a.status, mg + 5, y + 6);
       doc.setFontSize(6.5); doc.setTextColor(...LG);
-      doc.text(a.prazo, W - mg - 2, y + 5.5, {align:"right"});
+      doc.text(a.prazo, W - mg - 3, y + 6, {align:"right"});
+      let ay = y + 11;
       doc.setFont("helvetica","bold"); doc.setFontSize(8.5); doc.setTextColor(...DK);
-      doc.splitTextToSize(a.acao, cw - 20).forEach((l, li) => { doc.text(l, mg + 10, y + 10 + li * 3.5); });
-      doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(...LG);
-      doc.text("Impacto: " + a.imp, mg + 10, y + 13.5);
-      y += 18;
+      aLines.forEach(l => { doc.text(l, mg + 5, ay); ay += 4; });
+      ay += 1.5;
+      doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(...LG);
+      iLines.forEach(l => { doc.text(l, mg + 5, ay); ay += 3.8; });
+      y += boxH + 3;
     });
-    y += 4;
+    y += 3;
 
     // ── Disclaimer ──
     if (y > 268) { doc.addPage(); drawFrame(); y = 46; }
