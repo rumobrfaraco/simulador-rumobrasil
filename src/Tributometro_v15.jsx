@@ -652,12 +652,12 @@ function Painel(){
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
               <span style={{fontSize:18}}>🚛</span>
               <div>
-                <div style={{fontFamily:F.sans,fontSize:13,fontWeight:600,color:C.blue}}>Frota Própria</div>
+                <div style={{fontFamily:F.sans,fontSize:13,fontWeight:400,color:C.blue}}>Frota Própria</div>
                 <div style={{fontFamily:F.sans,fontSize:9,color:C.text3}}>Veículos próprios — crédito pleno sobre insumos</div>
               </div>
             </div>
             <div style={{marginBottom:10}}>
-              <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,fontWeight:500,marginBottom:6,textTransform:"uppercase",letterSpacing:0.5}}>Alíquotas em {ano}</div>
+              <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,fontWeight:400,marginBottom:6,textTransform:"uppercase",letterSpacing:0.5}}>Alíquotas em {ano}</div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}>
                 {[
                   {l:"CBS",  v:m.cbs+"%",             c:C.blue,   bg:C.blueLt},
@@ -666,7 +666,7 @@ function Painel(){
                 ].map((r,i)=>(
                   <div key={i} style={{background:r.bg,border:"1px solid "+r.c+"33",padding:"8px",textAlign:"center",borderRadius:2}}>
                     <div style={{fontFamily:F.sans,fontSize:8,color:C.text2,marginBottom:4}}>{r.l}</div>
-                    <div style={{fontFamily:F.mono,fontSize:16,fontWeight:700,color:r.c,lineHeight:1}}>{r.v}</div>
+                    <div style={{fontFamily:F.mono,fontSize:16,fontWeight:500,color:r.c,lineHeight:1}}>{r.v}</div>
                   </div>
                 ))}
               </div>
@@ -678,7 +678,7 @@ function Painel(){
               </div>
             </div>
             <div style={{padding:"8px 10px",background:C.blueLt,border:"1px solid "+C.blue+"33",borderLeft:"2px solid "+C.blue,marginBottom:8}}>
-              <div style={{fontFamily:F.sans,fontSize:9,color:C.blue,fontWeight:600,marginBottom:4}}>✓ CRÉDITO PLENO sobre insumos</div>
+              <div style={{fontFamily:F.sans,fontSize:9,color:C.blue,fontWeight:400,marginBottom:4}}>✓ CRÉDITO PLENO sobre insumos</div>
               <div style={{display:"flex",flexDirection:"column",gap:2}}>
                 {["Diesel / GNV / Gasolina","Peças e pneus","Manutenção preventiva e corretiva","Pedágios"].map((item,i)=>(
                   <div key={i} style={{fontFamily:F.sans,fontSize:9,color:C.text2}}>• {item}</div>
@@ -686,8 +686,8 @@ function Painel(){
               </div>
             </div>
             <div style={{padding:"6px 10px",background:C.greenLt,border:"1px solid "+C.green+"33",borderRadius:2}}>
-              <div style={{fontFamily:F.sans,fontSize:9,color:C.green,fontWeight:500}}>Carga efetiva (2033) estimada</div>
-              <div style={{fontFamily:F.mono,fontSize:13,color:C.green,fontWeight:600}}>~11–14%</div>
+              <div style={{fontFamily:F.sans,fontSize:9,color:C.green,fontWeight:400}}>Carga efetiva (2033) estimada</div>
+              <div style={{fontFamily:F.mono,fontSize:13,color:C.green,fontWeight:500}}>~11–14%</div>
               <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginTop:2}}>com aproveitamento pleno de créditos sobre insumos (~55% do faturamento)</div>
             </div>
           </div>
@@ -697,12 +697,12 @@ function Painel(){
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
               <span style={{fontSize:18}}>👥</span>
               <div>
-                <div style={{fontFamily:F.sans,fontSize:13,fontWeight:600,color:C.amber}}>Terceiros / Subcontratados</div>
+                <div style={{fontFamily:F.sans,fontSize:13,fontWeight:400,color:C.amber}}>Terceiros / Subcontratados</div>
                 <div style={{fontFamily:F.sans,fontSize:9,color:C.text3}}>Transportadores contratados via CT-e — crédito pelo regime do prestador</div>
               </div>
             </div>
             <div style={{marginBottom:10}}>
-              <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,fontWeight:500,marginBottom:6,textTransform:"uppercase",letterSpacing:0.5}}>Alíquotas em {ano}</div>
+              <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,fontWeight:400,marginBottom:6,textTransform:"uppercase",letterSpacing:0.5}}>Alíquotas em {ano}</div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}>
                 {[
                   {l:"CBS",  v:m.cbs+"%",             c:C.blue,   bg:C.blueLt},
@@ -711,7 +711,7 @@ function Painel(){
                 ].map((r,i)=>(
                   <div key={i} style={{background:r.bg,border:"1px solid "+r.c+"33",padding:"8px",textAlign:"center",borderRadius:2}}>
                     <div style={{fontFamily:F.sans,fontSize:8,color:C.text2,marginBottom:4}}>{r.l}</div>
-                    <div style={{fontFamily:F.mono,fontSize:16,fontWeight:700,color:r.c,lineHeight:1}}>{r.v}</div>
+                    <div style={{fontFamily:F.mono,fontSize:16,fontWeight:500,color:r.c,lineHeight:1}}>{r.v}</div>
                   </div>
                 ))}
               </div>
@@ -723,7 +723,7 @@ function Painel(){
               </div>
             </div>
             <div style={{padding:"8px 10px",background:C.amberLt,border:"1px solid "+C.amber+"33",borderLeft:"2px solid "+C.amber,marginBottom:8}}>
-              <div style={{fontFamily:F.sans,fontSize:9,color:C.amber,fontWeight:600,marginBottom:6}}>Crédito CBS pelo regime do terceiro</div>
+              <div style={{fontFamily:F.sans,fontSize:9,color:C.amber,fontWeight:400,marginBottom:6}}>Crédito CBS pelo regime do terceiro</div>
               {[
                 {regime:"Autônomo (TAC/TRC)",  cred:"1,86%", cor:C.red,   obs:"sobre o valor pago (líquido de margem)"},
                 {regime:"Simples Nacional",     cred:"2,50%", cor:C.amber, obs:"sobre o valor pago (líquido de margem)"},
@@ -734,12 +734,12 @@ function Painel(){
                     <div style={{fontFamily:F.sans,fontSize:9,color:C.text2}}>{r.regime}</div>
                     <div style={{fontFamily:F.sans,fontSize:8,color:C.text3}}>{r.obs}</div>
                   </div>
-                  <span style={{fontFamily:F.mono,fontSize:11,color:r.cor,fontWeight:600}}>{r.cred}</span>
+                  <span style={{fontFamily:F.mono,fontSize:11,color:r.cor,fontWeight:500}}>{r.cred}</span>
                 </div>
               ))}
             </div>
             <div style={{padding:"6px 10px",background:C.redLt,border:"1px solid "+C.red+"33",borderRadius:2}}>
-              <div style={{fontFamily:F.sans,fontSize:9,color:C.red,fontWeight:500}}>Mix padrão TRC: crédito CBS médio ~3,73%</div>
+              <div style={{fontFamily:F.sans,fontSize:9,color:C.red,fontWeight:400}}>Mix padrão TRC: crédito CBS médio ~3,73%</div>
               <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginTop:2}}>20% autôn + 60% SN + 20% LP. Quanto maior a participação de LP/LR, maior o crédito recuperado.</div>
             </div>
           </div>
