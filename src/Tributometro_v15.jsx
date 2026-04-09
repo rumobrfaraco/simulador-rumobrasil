@@ -68,9 +68,9 @@ function calcReforma({
   frete, regime, pctExportacao,
   cbsAliq, ibsAliq,
   usaFrota, pctFrota, insumosAtivos, insumosCusto,
-  usaTerceiros, pctTerceiros, mixAutonomo, mixSN, mixLucro,
+  usaTerceiros, pctTerceiros, mixAutonomo, mixSN, mixLucro, margemTerceiros,
   insumosAtivosTerceiros, insumosCustoTerceiros,
-  usaAgregados, pctAgregados, regimeAgregado,
+  usaAgregados, pctAgregados, regimeAgregado, margemAgregados,
   insumosAtivosAgregados, insumosCustoAgregados,
 }) {
   const fexp = pctExportacao / 100;
@@ -116,7 +116,7 @@ function calcReforma({
 
   // ── TERCEIROS ──
   if (usaTerceiros && pctTerceiros > 0) {
-    const baseTerceiros = frete * (pctTerceiros / 100);
+    const baseTerceiros = frete * (pctTerceiros / 100) * (1 - (margemTerceiros || 0) / 100);
     const cbsCredPct = calcCBSCredito(mixAutonomo, mixSN, mixLucro);
     creditoCBS_terceiros = baseTerceiros * (cbsCredPct / 100);
     creditoIBS_terceiros = baseTerceiros * aliqIBS;
@@ -138,7 +138,7 @@ function calcReforma({
 
   // ── AGREGADOS ──
   if (usaAgregados && pctAgregados > 0) {
-    const baseAgregados = frete * (pctAgregados / 100);
+    const baseAgregados = frete * (pctAgregados / 100) * (1 - (margemAgregados || 0) / 100);
     let cbsCredAgregado = 0;
     if (regimeAgregado === "Autônomo") cbsCredAgregado = CBS_CRED.autonomo / 100;
     else if (regimeAgregado === "Simples Nacional") cbsCredAgregado = CBS_CRED.simplesNacional / 100;
@@ -804,10 +804,10 @@ function Oracle(){
          usaFrota,setUsaFrota,pctFrota,setPctFrota,
          insumosAtivos,setInsumosAtivos,insumosCusto,setInsumosCusto,
          usaTerceiros,setUsaTerceiros,pctTerceiros,setPctTerceiros,
-         mixAutonomo,setMixAutonomo,mixSN,setMixSN,mixLucro,setMixLucro,
+         mixAutonomo,setMixAutonomo,mixSN,setMixSN,mixLucro,setMixLucro,margemTerceiros,setMargemTerceiros,
          insumosAtivosTerceiros,setInsumosAtivosTerceiros,insumosCustoTerceiros,setInsumosCustoTerceiros,
          usaAgregados,setUsaAgregados,pctAgregados,setPctAgregados,
-         regimeAgregado,setRegimeAgregado,
+         regimeAgregado,setRegimeAgregado,margemAgregados,setMargemAgregados,
          insumosAtivosAgregados,setInsumosAtivosAgregados,insumosCustoAgregados,setInsumosCustoAgregados,
          despesasSCAtivas,setDespesasSCAtivas,despesasSCCusto,setDespesasSCCusto,
          precoDiesel,setPrecoDiesel,isMob}=useApp();
@@ -821,6 +821,8 @@ function Oracle(){
   const [rA,setRA]=useState(String(mixAutonomo));
   const [rS,setRS]=useState(String(mixSN));
   const [rL,setRL]=useState(String(mixLucro));
+  const [rMT,setRMT]=useState(String(margemTerceiros));
+  const [rMA,setRMA]=useState(String(margemAgregados));
   const [rDiesel,setRDiesel]=useState(String(precoDiesel));
   const [subTab,setSubTab]=useState("frota");
 
@@ -833,6 +835,8 @@ function Oracle(){
   useEffect(()=>setRA(String(mixAutonomo)),[mixAutonomo]);
   useEffect(()=>setRS(String(mixSN)),[mixSN]);
   useEffect(()=>setRL(String(mixLucro)),[mixLucro]);
+  useEffect(()=>setRMT(String(margemTerceiros)),[margemTerceiros]);
+  useEffect(()=>setRMA(String(margemAgregados)),[margemAgregados]);
   useEffect(()=>setRDiesel(String(precoDiesel)),[precoDiesel]);
 
   const cf=()=>{const n=parseInt(rf.replace(/\D/g,""),10);if(n>0){setFrete(n);setRf(n.toLocaleString("pt-BR"));}else setRf(frete.toLocaleString("pt-BR"));};
@@ -844,6 +848,8 @@ function Oracle(){
   const cA=()=>{const n=parseInt(rA,10);if(!isNaN(n)&&n>=0&&n<=100)setMixAutonomo(n);else setRA(String(mixAutonomo));};
   const cS=()=>{const n=parseInt(rS,10);if(!isNaN(n)&&n>=0&&n<=100)setMixSN(n);else setRS(String(mixSN));};
   const cL=()=>{const n=parseInt(rL,10);if(!isNaN(n)&&n>=0&&n<=100)setMixLucro(n);else setRL(String(mixLucro));};
+  const cMT=()=>{const n=parseInt(rMT,10);if(!isNaN(n)&&n>=0&&n<100)setMargemTerceiros(n);else setRMT(String(margemTerceiros));};
+  const cMA=()=>{const n=parseInt(rMA,10);if(!isNaN(n)&&n>=0&&n<100)setMargemAgregados(n);else setRMA(String(margemAgregados));};
   const cDiesel=()=>{const n=parseFloat(rDiesel.replace(",","."));if(!isNaN(n)&&n>0&&n<=20)setPrecoDiesel(n);else setRDiesel(String(precoDiesel));};
 
   const m=MILES.find((x)=>x.ano===ano)||MILES[0];
@@ -866,9 +872,9 @@ function Oracle(){
     frete, regime, pctExportacao,
     cbsAliq: m.cbs, ibsAliq: m.ibs,
     usaFrota, pctFrota, insumosAtivos, insumosCusto,
-    usaTerceiros, pctTerceiros, mixAutonomo, mixSN, mixLucro,
+    usaTerceiros, pctTerceiros, mixAutonomo, mixSN, mixLucro, margemTerceiros,
     insumosAtivosTerceiros, insumosCustoTerceiros,
-    usaAgregados, pctAgregados, regimeAgregado,
+    usaAgregados, pctAgregados, regimeAgregado, margemAgregados,
     insumosAtivosAgregados, insumosCustoAgregados,
   });
 
@@ -877,9 +883,9 @@ function Oracle(){
       frete, regime, pctExportacao,
       cbsAliq: mi.cbs, ibsAliq: mi.ibs,
       usaFrota, pctFrota, insumosAtivos, insumosCusto,
-      usaTerceiros, pctTerceiros, mixAutonomo, mixSN, mixLucro,
+      usaTerceiros, pctTerceiros, mixAutonomo, mixSN, mixLucro, margemTerceiros,
       insumosAtivosTerceiros, insumosCustoTerceiros,
-      usaAgregados, pctAgregados, regimeAgregado,
+      usaAgregados, pctAgregados, regimeAgregado, margemAgregados,
       insumosAtivosAgregados, insumosCustoAgregados,
     }).totalRecolher;
   };
@@ -1378,8 +1384,11 @@ function Oracle(){
                 ) : (
                   <>
                     <NInput label="% do faturamento que é terceiros" raw={rPT} setRaw={setRPT} onBlur={cPT} suffix="%"/>
-                    <div style={{marginTop:8,padding:"6px 10px",background:C.bg2,border:"1px solid "+C.border,fontFamily:F.sans,fontSize:9,color:C.text2}}>
-                      Premissas: o crédito de CBS do terceiro depende do regime tributário dele. Autônomos geram CBS de 1,86%, Simples Nacional 2,50%, e LP/LR 9,3%.
+                    <div style={{marginTop:6}}>
+                      <NInput label="Margem da transportadora sobre o frete terceirizado" hint="base do crédito = frete × (1 − margem)" raw={rMT} setRaw={setRMT} onBlur={cMT} suffix="%"/>
+                    </div>
+                    <div style={{marginTop:6,padding:"5px 10px",background:C.bg2,border:"1px solid "+C.border,fontFamily:F.sans,fontSize:9,color:C.text2}}>
+                      Base do crédito = R$ {(frete*pctTerceiros/100*(1-margemTerceiros/100)).toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês &nbsp;·&nbsp; Crédito CBS do terceiro depende do regime dele: autônomo 1,86%, SN 2,50%, LP/LR 9,3%.
                     </div>
                     <D my={8}/>
                     <SL right={<span style={{fontFamily:F.sans,fontSize:9,color:C.text3}}>Qual o regime do terceiro?</span>}>Regime tributário dos terceiros</SL>
@@ -1468,8 +1477,11 @@ function Oracle(){
                 ) : (
                   <>
                     <NInput label="% do faturamento que é agregados" raw={rPA} setRaw={setRPA} onBlur={cPA} suffix="%"/>
-                    <div style={{marginTop:8,padding:"6px 10px",background:C.bg2,border:"1px solid "+C.border,fontFamily:F.sans,fontSize:9,color:C.text2}}>
-                      Premissas: agregados são motoristas com veículo próprio, com contrato de exclusividade. O crédito CBS depende do regime tributário do agregado.
+                    <div style={{marginTop:6}}>
+                      <NInput label="Margem da transportadora sobre o frete agregado" hint="base do crédito = frete × (1 − margem)" raw={rMA} setRaw={setRMA} onBlur={cMA} suffix="%"/>
+                    </div>
+                    <div style={{marginTop:6,padding:"5px 10px",background:C.bg2,border:"1px solid "+C.border,fontFamily:F.sans,fontSize:9,color:C.text2}}>
+                      Base do crédito = R$ {(frete*pctAgregados/100*(1-margemAgregados/100)).toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês &nbsp;·&nbsp; Motoristas com veículo próprio em exclusividade. Crédito CBS depende do regime do agregado.
                     </div>
                     <D my={8}/>
                     <SL>Regime tributário do agregado</SL>
@@ -1600,6 +1612,72 @@ function Oracle(){
               );
             })()}
           </div>
+
+          {/* ═══ CARD COMERCIAL — IMPACTO ═══ */}
+          {(()=>{
+            const freteBase = frete * (1 - pctExportacao/100);
+            // PIS+COFINS hoje (LP/LR cumulativo = 3,65%; SN incluso no DAS)
+            const pisCofinsHoje = regime === "Simples Nacional" ? null : freteBase * 0.0365;
+            const cbsIbs2027 = calcReforma({
+              frete, regime, pctExportacao, cbsAliq:9.3, ibsAliq:0,
+              usaFrota, pctFrota, insumosAtivos, insumosCusto,
+              usaTerceiros, pctTerceiros, mixAutonomo, mixSN, mixLucro, margemTerceiros,
+              insumosAtivosTerceiros, insumosCustoTerceiros,
+              usaAgregados, pctAgregados, regimeAgregado, margemAgregados,
+              insumosAtivosAgregados, insumosCustoAgregados,
+            }).totalRecolher;
+            const variacao = pisCofinsHoje ? ((cbsIbs2027 - pisCofinsHoje) / pisCofinsHoje * 100) : null;
+            const varColor = variacao === null ? C.text2 : variacao > 0 ? C.red : C.green;
+            const varSinal = variacao === null ? "" : variacao > 0 ? "▲" : "▼";
+            return (
+              <div style={{background:C.bg1,borderTop:"1px solid "+C.border,padding:"14px 16px"}}>
+                <SL right={<Bdg color={C.brand}>IMPACTO</Bdg>}>Impacto financeiro da reforma tributária</SL>
+                <div style={{display:"grid",gridTemplateColumns:isMob?"1fr 1fr":"1fr 1fr 1fr",gap:8}}>
+                  <div style={{padding:"12px",background:C.bg2,border:"1px solid "+C.border,borderTop:"3px solid "+C.text3}}>
+                    <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,marginBottom:6,textTransform:"uppercase",letterSpacing:0.6}}>Hoje — PIS+COFINS</div>
+                    {pisCofinsHoje !== null ? (
+                      <>
+                        <div style={{fontFamily:F.mono,fontSize:18,fontWeight:600,color:C.text,lineHeight:1}}>
+                          R$ {pisCofinsHoje.toLocaleString("pt-BR",{maximumFractionDigits:0})}
+                        </div>
+                        <div style={{fontFamily:F.sans,fontSize:9,color:C.text3,marginTop:4}}>3,65% sobre receita &nbsp;·&nbsp; cumulativo</div>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{fontFamily:F.mono,fontSize:14,fontWeight:600,color:C.text3,lineHeight:1}}>Incluso no DAS</div>
+                        <div style={{fontFamily:F.sans,fontSize:9,color:C.text3,marginTop:4}}>Simples Nacional</div>
+                      </>
+                    )}
+                  </div>
+                  <div style={{padding:"12px",background:C.bg2,border:"1px solid "+C.border,borderTop:"3px solid "+C.blue}}>
+                    <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,marginBottom:6,textTransform:"uppercase",letterSpacing:0.6}}>2027 — CBS (líquido)</div>
+                    <div style={{fontFamily:F.mono,fontSize:18,fontWeight:600,color:C.blue,lineHeight:1}}>
+                      R$ {cbsIbs2027.toLocaleString("pt-BR",{maximumFractionDigits:0})}
+                    </div>
+                    <div style={{fontFamily:F.sans,fontSize:9,color:C.text3,marginTop:4}}>após créditos de insumos/frota</div>
+                  </div>
+                  <div style={{padding:"12px",background:variacao===null?C.bg2:variacao>0?"rgba(220,38,38,0.06)":"rgba(22,163,74,0.06)",border:"1px solid "+(variacao===null?C.border:variacao>0?C.red+"33":C.green+"33"),borderTop:"3px solid "+varColor}}>
+                    <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,marginBottom:6,textTransform:"uppercase",letterSpacing:0.6}}>Variação estimada</div>
+                    {variacao !== null ? (
+                      <>
+                        <div style={{fontFamily:F.mono,fontSize:18,fontWeight:600,color:varColor,lineHeight:1}}>
+                          {varSinal} {Math.abs(variacao).toFixed(0)}%
+                        </div>
+                        <div style={{fontFamily:F.sans,fontSize:9,color:C.text3,marginTop:4}}>
+                          {variacao > 0 ? "aumento no tributo a partir de 2027" : "redução no tributo a partir de 2027"}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{fontFamily:F.mono,fontSize:14,fontWeight:600,color:C.text3,lineHeight:1}}>—</div>
+                        <div style={{fontFamily:F.sans,fontSize:9,color:C.text3,marginTop:4}}>comparação via DAS não disponível</div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* ═══ RESULTADO DA SIMULAÇÃO ═══ */}
           <div style={{background:C.bg1,padding:"14px 16px",borderTop:"1px solid "+C.border}}>
@@ -1851,11 +1929,13 @@ export default function App(){
   const [mixAutonomo,setMixAutonomo]=useState(20);
   const [mixSN,setMixSN]=useState(60);
   const [mixLucro,setMixLucro]=useState(20);
+  const [margemTerceiros,setMargemTerceiros]=useState(25);
 
   // Agregados
   const [usaAgregados,setUsaAgregados]=useState(false);
   const [pctAgregados,setPctAgregados]=useState(10);
   const [regimeAgregado,setRegimeAgregado]=useState("Autônomo");
+  const [margemAgregados,setMargemAgregados]=useState(20);
 
   // Diesel ao vivo
   const [precoDiesel,setPrecoDiesel]=useState(6.15);
@@ -1870,10 +1950,10 @@ export default function App(){
     usaFrota,setUsaFrota,pctFrota,setPctFrota,
     insumosAtivos,setInsumosAtivos,insumosCusto,setInsumosCusto,
     usaTerceiros,setUsaTerceiros,pctTerceiros,setPctTerceiros,
-    mixAutonomo,setMixAutonomo,mixSN,setMixSN,mixLucro,setMixLucro,
+    mixAutonomo,setMixAutonomo,mixSN,setMixSN,mixLucro,setMixLucro,margemTerceiros,setMargemTerceiros,
     insumosAtivosTerceiros,setInsumosAtivosTerceiros,insumosCustoTerceiros,setInsumosCustoTerceiros,
     usaAgregados,setUsaAgregados,pctAgregados,setPctAgregados,
-    regimeAgregado,setRegimeAgregado,
+    regimeAgregado,setRegimeAgregado,margemAgregados,setMargemAgregados,
     insumosAtivosAgregados,setInsumosAtivosAgregados,insumosCustoAgregados,setInsumosCustoAgregados,
     despesasSCAtivas,setDespesasSCAtivas,despesasSCCusto,setDespesasSCCusto,
     precoDiesel,setPrecoDiesel,
