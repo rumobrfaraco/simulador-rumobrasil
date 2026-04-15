@@ -1461,9 +1461,9 @@ function Oracle(){
                       Frota própria: <span style={{fontFamily:F.mono,color:C.blue}}>{pctFrota}% do faturamento</span> = R$ {(frete*pctFrota/100).toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês — créditos plenos de CBS/IBS sobre os insumos abaixo.
                     </div>
                     <D my={8}/>
-                    <div onClick={()=>togCol("frotaInsumos")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",padding:"3px 0",marginBottom:4,userSelect:"none"}}>
-                      <span style={{fontFamily:F.sans,fontSize:9,color:C.text2,fontWeight:500,textTransform:"uppercase",letterSpacing:0.5}}>Insumos com direito a crédito CBS/IBS</span>
-                      <span style={{fontFamily:F.mono,fontSize:9,color:C.text3}}>{collapsed["frotaInsumos"]?"▶":"▼"}</span>
+                    <div onClick={()=>togCol("frotaInsumos")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",padding:"10px 12px",marginBottom:4,userSelect:"none",background:C.bg2,border:"1px solid "+C.border,borderRadius:3,minHeight:44,WebkitTapHighlightColor:"transparent",touchAction:"manipulation"}}>
+                      <span style={{fontFamily:F.sans,fontSize:10,color:C.text2,fontWeight:600,textTransform:"uppercase",letterSpacing:0.6}}>Insumos com crédito CBS/IBS</span>
+                      <span style={{fontFamily:F.mono,fontSize:11,color:C.text,background:C.bg3,borderRadius:3,padding:"3px 10px",minWidth:32,textAlign:"center",border:"1px solid "+C.border}}>{collapsed["frotaInsumos"]?"▶ abrir":"▼ recolher"}</span>
                     </div>
                     <div style={{display:collapsed["frotaInsumos"]?"none":"flex",flexDirection:"column",gap:4}}>
                       {INSUMOS_FROTA.map(insumo=>(
@@ -1479,7 +1479,11 @@ function Oracle(){
                     </div>
                     {reforma.detalheFrota.length > 0 && (
                       <div style={{marginTop:12}}>
-                        <SL right={<Bdg color={C.green}>CRÉDITOS</Bdg>}>Créditos gerados pela frota</SL>
+                        <div onClick={()=>togCol("frotaCreditos")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",padding:"10px 12px",marginBottom:4,userSelect:"none",background:C.bg2,border:"1px solid "+C.border,borderRadius:3,minHeight:44,WebkitTapHighlightColor:"transparent",touchAction:"manipulation"}}>
+                          <span style={{fontFamily:F.sans,fontSize:10,color:C.text2,fontWeight:600,textTransform:"uppercase",letterSpacing:0.6}}>Créditos gerados pela frota</span>
+                          <span style={{fontFamily:F.mono,fontSize:11,color:C.text,background:C.bg3,borderRadius:3,padding:"3px 10px",minWidth:32,textAlign:"center",border:"1px solid "+C.border}}>{collapsed["frotaCreditos"]?"▶ abrir":"▼ recolher"}</span>
+                        </div>
+                        <div style={{display:collapsed["frotaCreditos"]?"none":undefined}}>
                         <table style={{width:"100%",borderCollapse:"collapse"}}>
                           <thead>
                             <tr style={{borderBottom:"1px solid "+C.border}}>
@@ -1502,6 +1506,7 @@ function Oracle(){
                         <div style={{marginTop:6,padding:"6px 10px",background:C.blueLt,border:"1px solid "+C.blue+"33",display:"flex",justifyContent:"space-between"}}>
                           <span style={{fontFamily:F.sans,fontSize:10,color:C.blue,fontWeight:500}}>Total créditos frota</span>
                           <span style={{fontFamily:F.mono,fontSize:11,color:C.blue,fontWeight:600}}>R$ {(reforma.creditoCBS_frota+reforma.creditoIBS_frota).toLocaleString("pt-BR",{maximumFractionDigits:0})}</span>
+                        </div>
                         </div>
                       </div>
                     )}
@@ -1539,9 +1544,9 @@ function Oracle(){
                       Base do crédito = R$ {(frete*pctTerceiros/100*(1-margemTerceiros/100)).toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês &nbsp;·&nbsp; Crédito CBS do terceiro depende do regime: autônomo 1,86%, SN 2,50%, {regimeLucroTerceiros==="Lucro Real"?"LR 9,3%":"LP 9,25%"}.
                     </div>
                     <D my={8}/>
-                    <div onClick={()=>togCol("tercRegime")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",padding:"3px 0",marginBottom:4,userSelect:"none"}}>
-                      <span style={{fontFamily:F.sans,fontSize:9,color:C.text2,fontWeight:500,textTransform:"uppercase",letterSpacing:0.5}}>Regime tributário dos terceiros</span>
-                      <span style={{fontFamily:F.mono,fontSize:9,color:C.text3}}>{collapsed["tercRegime"]?"▶":"▼"}</span>
+                    <div onClick={()=>togCol("tercRegime")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",padding:"10px 12px",marginBottom:4,userSelect:"none",background:C.bg2,border:"1px solid "+C.border,borderRadius:3,minHeight:44,WebkitTapHighlightColor:"transparent",touchAction:"manipulation"}}>
+                      <span style={{fontFamily:F.sans,fontSize:10,color:C.text2,fontWeight:600,textTransform:"uppercase",letterSpacing:0.6}}>Regime tributário dos terceiros</span>
+                      <span style={{fontFamily:F.mono,fontSize:11,color:C.text,background:C.bg3,borderRadius:3,padding:"3px 10px",minWidth:32,textAlign:"center",border:"1px solid "+C.border}}>{collapsed["tercRegime"]?"▶ abrir":"▼ recolher"}</span>
                     </div>
                     <div style={{display:collapsed["tercRegime"]?"none":"flex",flexDirection:"column",gap:6}}>
                       <div style={{padding:"6px 10px",background:C.amberLt,border:"1px solid "+C.amber+"44",borderLeft:"3px solid "+C.amber,borderRadius:2}}>
@@ -1577,9 +1582,9 @@ function Oracle(){
                       <span style={{fontFamily:F.mono,fontSize:11,color:C.amber,fontWeight:600}}>R$ {(reforma.creditoCBS_terceiros+reforma.creditoIBS_terceiros).toLocaleString("pt-BR",{maximumFractionDigits:0})}</span>
                     </div>
                     <D my={10}/>
-                    <div onClick={()=>togCol("tercInsumos")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",padding:"3px 0",marginBottom:4,userSelect:"none"}}>
-                      <span style={{fontFamily:F.sans,fontSize:9,color:C.text2,fontWeight:500,textTransform:"uppercase",letterSpacing:0.5}}>Insumos operacionais com direito a crédito CBS/IBS</span>
-                      <span style={{fontFamily:F.mono,fontSize:9,color:C.text3}}>{collapsed["tercInsumos"]?"▶":"▼"}</span>
+                    <div onClick={()=>togCol("tercInsumos")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",padding:"10px 12px",marginBottom:4,userSelect:"none",background:C.bg2,border:"1px solid "+C.border,borderRadius:3,minHeight:44,WebkitTapHighlightColor:"transparent",touchAction:"manipulation"}}>
+                      <span style={{fontFamily:F.sans,fontSize:10,color:C.text2,fontWeight:600,textTransform:"uppercase",letterSpacing:0.6}}>Insumos operacionais com crédito</span>
+                      <span style={{fontFamily:F.mono,fontSize:11,color:C.text,background:C.bg3,borderRadius:3,padding:"3px 10px",minWidth:32,textAlign:"center",border:"1px solid "+C.border}}>{collapsed["tercInsumos"]?"▶ abrir":"▼ recolher"}</span>
                     </div>
                     <div style={{display:collapsed["tercInsumos"]?"none":undefined}}>
                     <div style={{marginBottom:6,fontFamily:F.sans,fontSize:9,color:C.text2}}>
@@ -1600,7 +1605,11 @@ function Oracle(){
                     </div>
                     {reforma.detalheTerceiros.length > 0 && (
                       <div style={{marginTop:10}}>
-                        <SL right={<Bdg color={C.green}>CRÉDITOS INSUMOS</Bdg>}>Créditos de insumos adicionais</SL>
+                        <div onClick={()=>togCol("tercCreditos")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",padding:"10px 12px",marginBottom:4,userSelect:"none",background:C.bg2,border:"1px solid "+C.border,borderRadius:3,minHeight:44,WebkitTapHighlightColor:"transparent",touchAction:"manipulation"}}>
+                          <span style={{fontFamily:F.sans,fontSize:10,color:C.text2,fontWeight:600,textTransform:"uppercase",letterSpacing:0.6}}>Créditos de insumos adicionais</span>
+                          <span style={{fontFamily:F.mono,fontSize:11,color:C.text,background:C.bg3,borderRadius:3,padding:"3px 10px",minWidth:32,textAlign:"center",border:"1px solid "+C.border}}>{collapsed["tercCreditos"]?"▶ abrir":"▼ recolher"}</span>
+                        </div>
+                        <div style={{display:collapsed["tercCreditos"]?"none":undefined}}>
                         <table style={{width:"100%",borderCollapse:"collapse"}}>
                           <thead>
                             <tr style={{borderBottom:"1px solid "+C.border}}>
@@ -1620,6 +1629,7 @@ function Oracle(){
                             ))}
                           </tbody>
                         </table>
+                        </div>
                       </div>
                     )}
                   </>
@@ -1654,7 +1664,11 @@ function Oracle(){
                       Base do crédito = R$ {(frete*pctAgregados/100*(1-margemAgregados/100)).toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês &nbsp;·&nbsp; Motoristas com veículo próprio em exclusividade. Crédito CBS depende do regime do agregado.
                     </div>
                     <D my={8}/>
-                    <SL>Regime tributário do agregado</SL>
+                    <div onClick={()=>togCol("agrRegime")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",padding:"10px 12px",marginBottom:4,userSelect:"none",background:C.bg2,border:"1px solid "+C.border,borderRadius:3,minHeight:44,WebkitTapHighlightColor:"transparent",touchAction:"manipulation"}}>
+                      <span style={{fontFamily:F.sans,fontSize:10,color:C.text2,fontWeight:600,textTransform:"uppercase",letterSpacing:0.6}}>Regime tributário do agregado</span>
+                      <span style={{fontFamily:F.mono,fontSize:11,color:C.text,background:C.bg3,borderRadius:3,padding:"3px 10px",minWidth:32,textAlign:"center",border:"1px solid "+C.border}}>{collapsed["agrRegime"]?"▶ abrir":"▼ recolher"}</span>
+                    </div>
+                    <div style={{display:collapsed["agrRegime"]?"none":undefined}}>
                     <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
                       {["Autônomo","Simples Nacional","Lucro Presumido/Real"].map(r=>(
                         <Sel key={r} label={r} active={regimeAgregado===r} color={C.green} onClick={()=>setRegimeAgregado(r)}/>
@@ -1679,8 +1693,13 @@ function Oracle(){
                         </div>
                       </div>
                     )}
+                    </div>
                     <D my={10}/>
-                    <SL right={<span style={{fontFamily:F.sans,fontSize:9,color:C.text3}}>Marque os que se aplicam</span>}>Insumos operacionais com direito a crédito CBS/IBS</SL>
+                    <div onClick={()=>togCol("agrInsumos")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",padding:"10px 12px",marginBottom:4,userSelect:"none",background:C.bg2,border:"1px solid "+C.border,borderRadius:3,minHeight:44,WebkitTapHighlightColor:"transparent",touchAction:"manipulation"}}>
+                      <span style={{fontFamily:F.sans,fontSize:10,color:C.text2,fontWeight:600,textTransform:"uppercase",letterSpacing:0.6}}>Insumos operacionais com crédito</span>
+                      <span style={{fontFamily:F.mono,fontSize:11,color:C.text,background:C.bg3,borderRadius:3,padding:"3px 10px",minWidth:32,textAlign:"center",border:"1px solid "+C.border}}>{collapsed["agrInsumos"]?"▶ abrir":"▼ recolher"}</span>
+                    </div>
+                    <div style={{display:collapsed["agrInsumos"]?"none":undefined}}>
                     <div style={{marginBottom:6,fontFamily:F.sans,fontSize:9,color:C.text2}}>
                       Custos diretos da transportadora neste segmento (base: R$ {(frete*pctAgregados/100).toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês)
                     </div>
@@ -1695,6 +1714,7 @@ function Oracle(){
                           onCustoChange={(v)=>setInsumoCustoAgregados(insumo.id,v)}
                         />
                       ))}
+                    </div>
                     </div>
                     {reforma.detalheAgregados.length > 0 && (
                       <div style={{marginTop:10}}>
@@ -1728,7 +1748,11 @@ function Oracle(){
 
           {/* ═══ DESPESAS SEM DIREITO A CRÉDITO CBS/IBS ═══ */}
           <div style={{background:C.bg1,padding:"14px 16px",borderTop:"1px solid "+C.border}}>
-            <SL right={<Bdg color={C.red}>SEM CRÉDITO</Bdg>}>Despesas sem direito a crédito CBS/IBS</SL>
+            <div onClick={()=>togCol("despSC")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",padding:"10px 12px",marginBottom:4,userSelect:"none",background:C.bg2,border:"1px solid "+C.border,borderRadius:3,minHeight:44,WebkitTapHighlightColor:"transparent",touchAction:"manipulation"}}>
+              <span style={{fontFamily:F.sans,fontSize:10,color:C.text2,fontWeight:600,textTransform:"uppercase",letterSpacing:0.6}}>Despesas sem crédito CBS/IBS</span>
+              <span style={{fontFamily:F.mono,fontSize:11,color:C.text,background:C.bg3,borderRadius:3,padding:"3px 10px",minWidth:32,textAlign:"center",border:"1px solid "+C.border}}>{collapsed["despSC"]?"▶ abrir":"▼ recolher"}</span>
+            </div>
+            <div style={{display:collapsed["despSC"]?"none":undefined}}>
             <div style={{marginBottom:8,fontFamily:F.sans,fontSize:9,color:C.text2}}>
               Custos que não geram crédito de CBS ou IBS, independente do regime — registre abaixo como % do faturamento mensal (R$ {frete.toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês).
             </div>
@@ -1781,6 +1805,7 @@ function Oracle(){
                 </div>
               );
             })()}
+            </div>
           </div>
 
           {/* ═══ RESULTADO & IMPACTO ═══ */}
@@ -1791,7 +1816,11 @@ function Oracle(){
 
             {/* Apuração CBS + IBS */}
             <div style={{border:"1px solid "+C.border,borderTop:"3px solid "+C.brand,padding:"12px",marginBottom:10}}>
-              <div style={{fontFamily:F.sans,fontSize:9,color:C.brand,letterSpacing:0.8,textTransform:"uppercase",marginBottom:8}}>Apuração CBS + IBS — {ano}</div>
+              <div onClick={()=>togCol("apuracao")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",padding:"8px 10px",marginBottom:8,userSelect:"none",background:C.bg2,border:"1px solid "+C.border,borderRadius:3,minHeight:44,WebkitTapHighlightColor:"transparent",touchAction:"manipulation",margin:"-12px -12px 10px -12px",borderTop:"none",borderLeft:"none",borderRight:"none"}}>
+                <span style={{fontFamily:F.sans,fontSize:10,color:C.brand,fontWeight:600,textTransform:"uppercase",letterSpacing:0.6}}>Apuração CBS + IBS — {ano}</span>
+                <span style={{fontFamily:F.mono,fontSize:11,color:C.text,background:C.bg3,borderRadius:3,padding:"3px 10px",minWidth:32,textAlign:"center",border:"1px solid "+C.border}}>{collapsed["apuracao"]?"▶ abrir":"▼ recolher"}</span>
+              </div>
+              <div style={{display:collapsed["apuracao"]?"none":undefined}}>
 
               {/* CBS */}
               <div style={{marginBottom:8}}>
@@ -1842,6 +1871,7 @@ function Oracle(){
                   SN: sem direito a créditos CBS/IBS — débito integral
                 </div>
               )}
+              </div>
 
               <div style={{height:1,background:C.brand+"44",margin:"6px 0"}}/>
               <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0"}}>
