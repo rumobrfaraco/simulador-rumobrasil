@@ -854,7 +854,9 @@ function Oracle(){
   const eficCred = debito>0?(credTot/debito*100):0;
   const cbsMedTerceiros = calcCBSCredito(mixAutonomo,mixSN,mixLucro,lucroRateTerceiros);
   const baseExec = frete*(1-pctExportacao/100);
-  const hoje     = baseExec*0.0365;
+  const pctHoje  = regime==="Lucro Real"?0.0925:0.0365;
+  const descHoje = regime==="Lucro Real"?"PIS+COFINS 9,25% (LR)":"PIS+COFINS 3,65%";
+  const hoje     = baseExec*pctHoje;
   const liqAno   = reforma.totalRecolher;
   const liq2033  = calcReforma({frete,regime,pctExportacao,cbsAliq:9.3,ibsAliq:18.7,
     usaFrota,pctFrota,insumosAtivos,insumosCusto,
@@ -1402,7 +1404,7 @@ function Oracle(){
           <div style={{fontFamily:F.sans,fontSize:9,color:C.text3,letterSpacing:0.8,textTransform:"uppercase",marginBottom:8,fontWeight:500}}>Impacto da Reforma</div>
           <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:10}}>
             {[
-              {rotulo:"Hoje",      desc:"PIS+COFINS 3,65%", val:hoje,    variacao:null, cor:C.text3, ativo:false},
+              {rotulo:"Hoje",      desc:descHoje, val:hoje,    variacao:null, cor:C.text3, ativo:false},
               {rotulo:String(ano), desc:m.label,            val:liqAno,  variacao:vAno, cor:colAno,  ativo:true },
               {rotulo:"2033",      desc:"IVA Dual pleno",   val:liq2033, variacao:v33,  cor:col33,   ativo:false},
             ].map((row,i)=>(
@@ -1907,7 +1909,7 @@ function Oracle(){
                 <div style={{height:1,background:C.border,margin:"10px 0 8px"}}/>
                 <div style={{fontFamily:F.sans,fontSize:9,color:C.text3,letterSpacing:0.6,textTransform:"uppercase",marginBottom:6}}>Impacto da Reforma Tributária</div>
                 {[
-                  {rotulo:"Hoje",      desc:"PIS+COFINS 3,65%", val:hoje,    variacao:null, cor:C.text3, ativo:false},
+                  {rotulo:"Hoje",      desc:descHoje, val:hoje,    variacao:null, cor:C.text3, ativo:false},
                   {rotulo:String(ano), desc:m.label,            val:liqAno,  variacao:vAno, cor:colAno,  ativo:true },
                   {rotulo:"2033",      desc:"IVA Dual pleno",   val:liq2033, variacao:v33,  cor:col33,   ativo:false},
                 ].map((row,i)=>(
