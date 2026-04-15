@@ -1311,7 +1311,30 @@ function Oracle(){
             <NInput label="Frota" raw={rv} setRaw={setRv} onBlur={cv} suffix="veículos"/>
           </div>
 
-          <D my={8}/>
+          <D my={6}/>
+
+          {/* Regime tributário */}
+          <SL>Regime tributário</SL>
+          <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:6}}>
+            {[
+              {r:"Simples Nacional",  cor:C.red,   hint:"Sem direito a créditos CBS/IBS"},
+              {r:"Lucro Presumido",   cor:C.brand, hint:"Crédito CBS sobre insumos (~65%)"},
+              {r:"Lucro Real",        cor:C.green, hint:"Crédito CBS pleno sobre insumos"},
+            ].map(({r,cor,hint})=>(
+              <button key={r} onClick={()=>setRegime(r)}
+                style={{display:"flex",justifyContent:"space-between",alignItems:"center",border:"1px solid "+(regime===r?cor:C.border),background:regime===r?cor+"18":C.bg2,borderRadius:3,padding:"8px 12px",cursor:"pointer",minHeight:44,WebkitTapHighlightColor:"transparent",touchAction:"manipulation",transition:"all 0.12s"}}>
+                <span style={{fontFamily:F.sans,fontSize:10,color:regime===r?cor:C.text2,fontWeight:regime===r?600:400}}>{r}</span>
+                {regime===r && <span style={{fontFamily:F.sans,fontSize:8,color:cor,maxWidth:120,textAlign:"right",lineHeight:1.3}}>{hint}</span>}
+              </button>
+            ))}
+          </div>
+          {regime==="Simples Nacional" && (
+            <div style={{marginBottom:6,padding:"5px 8px",background:C.redLt,border:"1px solid "+C.red+"33",borderRadius:2,fontFamily:F.sans,fontSize:9,color:C.red}}>
+              ⚠️ SN: todos os créditos CBS/IBS zerados — débito integral
+            </div>
+          )}
+
+          <D my={6}/>
 
           {/* Exportação */}
           <NInput label="% Exportação" hint="isento CBS/IBS — mantém créditos" raw={rExp} setRaw={setRExp} onBlur={cExp} suffix="%"/>
