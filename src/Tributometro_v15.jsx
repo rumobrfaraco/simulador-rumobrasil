@@ -72,6 +72,7 @@ function calcReforma({
   insumosAtivosTerceiros, insumosCustoTerceiros,
   usaAgregados, pctAgregados, regimeAgregado, margemAgregados,
   insumosAtivosAgregados, insumosCustoAgregados,
+  valorCompraImob=0, valorVendaImob=0,
 }) {
   const fexp = pctExportacao / 100;
   const aliqCBS = cbsAliq / 100;
@@ -161,6 +162,13 @@ function calcReforma({
     }
   }
 
+  // ── IMOBILIZADOS (compra/venda de caminhões) ──
+  // Compra gera crédito; venda gera débito adicional
+  let cbsDebitoImob = valorVendaImob * aliqCBS;
+  let ibsDebitoImob = valorVendaImob * aliqIBS;
+  let creditoCBS_imob = valorCompraImob * aliqCBS;
+  let creditoIBS_imob = valorCompraImob * aliqIBS;
+
   // Simples Nacional não apropria crédito
   if (regime === "Simples Nacional") {
     creditoCBS_frota = 0; creditoIBS_frota = 0;
@@ -168,18 +176,26 @@ function calcReforma({
     creditoCBS_agregados = 0; creditoIBS_agregados = 0;
   }
 
-  const totalCreditoCBS = creditoCBS_frota + creditoCBS_terceiros + creditoCBS_agregados;
-  const totalCreditoIBS = creditoIBS_frota + creditoIBS_terceiros + creditoIBS_agregados;
+  const totalCreditoCBS = creditoCBS_frota + creditoCBS_terceiros + creditoCBS_agregados + (regime!=="Simples Nacional"?creditoCBS_imob:0);
+  const totalCreditoIBS = creditoIBS_frota + creditoIBS_terceiros + creditoIBS_agregados + (regime!=="Simples Nacional"?creditoIBS_imob:0);
+  const cbsDebitoTotal = cbsDebito + cbsDebitoImob;
+  const ibsDebitoTotal = ibsDebito + ibsDebitoImob;
 
-  const cbsRecolher = Math.max(0, cbsDebito - totalCreditoCBS);
-  const ibsRecolher = Math.max(0, ibsDebito - totalCreditoIBS);
+  const cbsSaldoCredor = Math.max(0, totalCreditoCBS - cbsDebitoTotal);
+  const ibsSaldoCredor = Math.max(0, totalCreditoIBS - ibsDebitoTotal);
+  const cbsRecolher = Math.max(0, cbsDebitoTotal - totalCreditoCBS);
+  const ibsRecolher = Math.max(0, ibsDebitoTotal - totalCreditoIBS);
 
   return {
-    cbsDebito, ibsDebito,
+    cbsDebito: cbsDebitoTotal, ibsDebito: ibsDebitoTotal,
     creditoCBS_frota, creditoIBS_frota,
     creditoCBS_terceiros, creditoIBS_terceiros,
     creditoCBS_agregados, creditoIBS_agregados,
     totalCreditoCBS, totalCreditoIBS,
+    creditoCBS_imob, creditoIBS_imob,
+    cbsDebitoImob, ibsDebitoImob,
+    cbsSaldoCredor, ibsSaldoCredor,
+    totalSaldoCredor: cbsSaldoCredor + ibsSaldoCredor,
     cbsRecolher, ibsRecolher,
     totalRecolher: cbsRecolher + ibsRecolher,
     detalheFrota,
@@ -763,6 +779,7 @@ function Oracle(){
          insumosAtivosTerceiros,setInsumosAtivosTerceiros,insumosCustoTerceiros,setInsumosCustoTerceiros,
          usaAgregados,setUsaAgregados,pctAgregados,setPctAgregados,
          regimeAgregado,setRegimeAgregado,margemAgregados,setMargemAgregados,
+         valorCompraImob,setValorCompraImob,valorVendaImob,setValorVendaImob,
          insumosAtivosAgregados,setInsumosAtivosAgregados,insumosCustoAgregados,setInsumosCustoAgregados,
          despesasSCAtivas,setDespesasSCAtivas,despesasSCCusto,setDespesasSCCusto,
          precoDiesel,setPrecoDiesel,isMob}=useApp();
@@ -778,6 +795,8 @@ function Oracle(){
   const [rL,setRL]=useState(String(mixLucro));
   const [rMT,setRMT]=useState(String(margemTerceiros));
   const [rMA,setRMA]=useState(String(margemAgregados));
+  const [rCI,setRCI]=useState(String(valorCompraImob));
+  const [rVI,setRVI]=useState(String(valorVendaImob));
   const [rDiesel,setRDiesel]=useState(String(precoDiesel));
   const [subTab,setSubTab]=useState("frota");
   const [collapsed,setCollapsed]=useState({});
@@ -794,6 +813,8 @@ function Oracle(){
   useEffect(()=>setRL(String(mixLucro)),[mixLucro]);
   useEffect(()=>setRMT(String(margemTerceiros)),[margemTerceiros]);
   useEffect(()=>setRMA(String(margemAgregados)),[margemAgregados]);
+  useEffect(()=>setRCI(String(valorCompraImob)),[valorCompraImob]);
+  useEffect(()=>setRVI(String(valorVendaImob)),[valorVendaImob]);
   useEffect(()=>setRDiesel(String(precoDiesel)),[precoDiesel]);
 
   const cf=()=>{const n=parseInt(rf.replace(/\D/g,""),10);if(n>0){setFrete(n);setRf(n.toLocaleString("pt-BR"));}else setRf(frete.toLocaleString("pt-BR"));};
@@ -807,6 +828,8 @@ function Oracle(){
   const cL=()=>{const n=parseInt(rL,10);if(!isNaN(n)&&n>=0&&n<=100)setMixLucro(n);else setRL(String(mixLucro));};
   const cMT=()=>{const n=parseInt(rMT,10);if(!isNaN(n)&&n>=0&&n<100)setMargemTerceiros(n);else setRMT(String(margemTerceiros));};
   const cMA=()=>{const n=parseInt(rMA,10);if(!isNaN(n)&&n>=0&&n<100)setMargemAgregados(n);else setRMA(String(margemAgregados));};
+  const cCI=()=>{const n=parseInt(rCI.replace(/\D/g,""),10);if(!isNaN(n)&&n>=0)setValorCompraImob(n);else setRCI(String(valorCompraImob));};
+  const cVI=()=>{const n=parseInt(rVI.replace(/\D/g,""),10);if(!isNaN(n)&&n>=0)setValorVendaImob(n);else setRVI(String(valorVendaImob));};
   const cDiesel=()=>{const n=parseFloat(rDiesel.replace(",","."));if(!isNaN(n)&&n>0&&n<=20)setPrecoDiesel(n);else setRDiesel(String(precoDiesel));};
 
   const m=MILES.find((x)=>x.ano===ano)||MILES[0];
@@ -834,6 +857,7 @@ function Oracle(){
     insumosAtivosTerceiros, insumosCustoTerceiros,
     usaAgregados, pctAgregados, regimeAgregado, margemAgregados,
     insumosAtivosAgregados, insumosCustoAgregados,
+    valorCompraImob, valorVendaImob,
   });
 
   const calcTot=(mi)=>{
@@ -845,6 +869,7 @@ function Oracle(){
       insumosAtivosTerceiros, insumosCustoTerceiros,
       usaAgregados, pctAgregados, regimeAgregado, margemAgregados,
       insumosAtivosAgregados, insumosCustoAgregados,
+      valorCompraImob, valorVendaImob,
     }).totalRecolher;
   };
 
@@ -854,16 +879,35 @@ function Oracle(){
   const eficCred = debito>0?(credTot/debito*100):0;
   const cbsMedTerceiros = calcCBSCredito(mixAutonomo,mixSN,mixLucro,lucroRateTerceiros);
   const baseExec = frete*(1-pctExportacao/100);
-  const pctHoje  = regime==="Lucro Real"?0.0925:0.0365;
-  const descHoje = regime==="Lucro Real"?"PIS+COFINS 9,25% (LR)":"PIS+COFINS 3,65%";
-  const hoje     = baseExec*pctHoje;
+  // Créditos PIS/COFINS para LR (não-cumulativo 9,25%) — mesmos insumos da frota
+  let creditoHojeLR = 0;
+  if(regime==="Lucro Real"){
+    if(usaFrota && pctFrota>0){
+      const baseFrota=frete*(pctFrota/100);
+      Object.entries(insumosAtivos).forEach(([id,ativo])=>{if(ativo)creditoHojeLR+=baseFrota*(insumosCusto[id]||0)/100*0.0925;});
+    }
+    if(usaTerceiros && pctTerceiros>0){
+      const baseTer=frete*(pctTerceiros/100)*(1-(margemTerceiros||0)/100);
+      // Pesos: autônomo 0%, SN ~2.5%, LP/LR 9.25%
+      const tot=mixAutonomo+mixSN+mixLucro||1;
+      const taxaMed=((mixSN/tot)*2.5+(mixLucro/tot)*9.25)/100;
+      creditoHojeLR+=baseTer*taxaMed;
+    }
+  }
+  const debitoHojeBruto = baseExec*(regime==="Lucro Real"?0.0925:0.0365);
+  const hoje     = regime==="Lucro Real" ? Math.max(0,debitoHojeBruto-creditoHojeLR) : debitoHojeBruto;
+  const pctHojeEfetivo = frete>0?(hoje/frete*100):0;
+  const descHoje = regime==="Lucro Real"
+    ? `PIS+COFINS 9,25% líquido (${pctHojeEfetivo.toFixed(2)}% efetivo)`
+    : "PIS+COFINS 3,65%";
   const liqAno   = reforma.totalRecolher;
   const liq2033  = calcReforma({frete,regime,pctExportacao,cbsAliq:9.3,ibsAliq:18.7,
     usaFrota,pctFrota,insumosAtivos,insumosCusto,
     usaTerceiros,pctTerceiros,mixAutonomo,mixSN,mixLucro,margemTerceiros,lucroRateTerceiros,
     insumosAtivosTerceiros,insumosCustoTerceiros,
     usaAgregados,pctAgregados,regimeAgregado,margemAgregados,
-    insumosAtivosAgregados,insumosCustoAgregados}).totalRecolher;
+    insumosAtivosAgregados,insumosCustoAgregados,
+    valorCompraImob,valorVendaImob}).totalRecolher;
   const vAno    = (liqAno-hoje)/Math.max(hoje,1)*100;
   const v33     = (liq2033-hoje)/Math.max(hoje,1)*100;
   const colAno  = vAno>0?C.red:C.green;
@@ -1335,14 +1379,22 @@ function Oracle(){
               ⚠️ SN: todos os créditos CBS/IBS zerados — débito integral
             </div>
           )}
+          {regime==="Simples Nacional" && frete*12>4800000 && (
+            <div style={{marginBottom:6,padding:"7px 10px",background:"#FEF2F2",border:"2px solid "+C.red,borderRadius:3,fontFamily:F.sans,fontSize:9,color:C.red,lineHeight:1.5}}>
+              <div style={{fontWeight:700,marginBottom:2}}>⛔ LIMITE SN ULTRAPASSADO</div>
+              Faturamento anual projetado: <strong>R$ {(frete*12).toLocaleString("pt-BR",{maximumFractionDigits:0})}</strong><br/>
+              Limite Simples Nacional (LC 123/2006): R$ 4.800.000/ano<br/>
+              Empresa não pode optar pelo Simples Nacional neste faturamento.
+            </div>
+          )}
 
           <D my={6}/>
 
           {/* Exportação */}
-          <NInput label="% Exportação" hint="isento CBS/IBS — mantém créditos" raw={rExp} setRaw={setRExp} onBlur={cExp} suffix="%"/>
+          <NInput label="% Exportação" hint="imune CBS/IBS — créditos mantidos e acumuláveis" raw={rExp} setRaw={setRExp} onBlur={cExp} suffix="%"/>
           {pctExportacao > 0 && (
             <div style={{marginTop:4,padding:"5px 8px",background:C.greenLt,border:"1px solid "+C.green+"33",borderRadius:2,fontFamily:F.sans,fontSize:9,color:C.green}}>
-              Exportação: {pctExportacao}% isento — créditos mantidos (acúmulo)
+              Exportação: {pctExportacao}% imune (LC 214/2025, art. 7º) — créditos mantidos e acumuláveis
             </div>
           )}
 
@@ -1502,6 +1554,28 @@ function Oracle(){
                         />
                       ))}
                     </div>
+                    <D my={10}/>
+                    <div onClick={()=>togCol("frotaImob")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",padding:"10px 12px",marginBottom:4,userSelect:"none",background:C.bg2,border:"1px solid "+C.border,borderRadius:3,minHeight:44,WebkitTapHighlightColor:"transparent",touchAction:"manipulation"}}>
+                      <span style={{fontFamily:F.sans,fontSize:10,color:C.text2,fontWeight:600,textTransform:"uppercase",letterSpacing:0.6}}>Imobilizados — Compra / Venda de Caminhões</span>
+                      <span style={{fontFamily:F.mono,fontSize:11,color:C.text,background:C.bg3,borderRadius:3,padding:"3px 10px",minWidth:32,textAlign:"center",border:"1px solid "+C.border}}>{collapsed["frotaImob"]?"▶ abrir":"▼ recolher"}</span>
+                    </div>
+                    <div style={{display:collapsed["frotaImob"]?"none":undefined}}>
+                      <div style={{marginBottom:8,padding:"6px 10px",background:C.bg2,border:"1px solid "+C.border,fontFamily:F.sans,fontSize:9,color:C.text2,lineHeight:1.5}}>
+                        Compra de caminhão gera <strong>crédito CBS/IBS</strong> (LC 214/2025, art. 28 — ativo imobilizado na atividade tributada).<br/>
+                        Venda de caminhão gera <strong>débito CBS/IBS</strong> sobre o valor de alienação. Informe o valor mensal médio.
+                      </div>
+                      <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                        <NInput label="Compra de caminhões / mês" hint="gera crédito CBS+IBS" raw={rCI} setRaw={setRCI} onBlur={cCI} prefix="R$"/>
+                        <NInput label="Venda de caminhões / mês" hint="gera débito CBS+IBS" raw={rVI} setRaw={setRVI} onBlur={cVI} prefix="R$"/>
+                      </div>
+                      {(valorCompraImob>0||valorVendaImob>0) && (
+                        <div style={{marginTop:6,padding:"7px 10px",background:C.bg2,border:"1px solid "+C.border,borderLeft:"2px solid "+C.brand,display:"flex",flexDirection:"column",gap:3}}>
+                          {valorCompraImob>0 && <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontFamily:F.sans,fontSize:9,color:C.text2}}>Crédito CBS/IBS (compra)</span><span style={{fontFamily:F.mono,fontSize:10,color:C.green}}>R$ {(reforma.creditoCBS_imob+reforma.creditoIBS_imob).toLocaleString("pt-BR",{maximumFractionDigits:0})}</span></div>}
+                          {valorVendaImob>0 && <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontFamily:F.sans,fontSize:9,color:C.text2}}>Débito CBS/IBS (venda)</span><span style={{fontFamily:F.mono,fontSize:10,color:C.red}}>R$ {(reforma.cbsDebitoImob+reforma.ibsDebitoImob).toLocaleString("pt-BR",{maximumFractionDigits:0})}</span></div>}
+                        </div>
+                      )}
+                    </div>
+
                     {reforma.detalheFrota.length > 0 && (
                       <div style={{marginTop:12}}>
                         <div onClick={()=>togCol("frotaCreditos")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",padding:"10px 12px",marginBottom:4,userSelect:"none",background:C.bg2,border:"1px solid "+C.border,borderRadius:3,minHeight:44,WebkitTapHighlightColor:"transparent",touchAction:"manipulation"}}>
@@ -1899,11 +1973,40 @@ function Oracle(){
               </div>
 
               <div style={{height:1,background:C.brand+"44",margin:"6px 0"}}/>
-              <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0"}}>
-                <span style={{fontFamily:F.sans,fontSize:11,color:C.text,fontWeight:600}}>TOTAL A RECOLHER</span>
-                <span style={{fontFamily:F.mono,fontSize:16,color:C.brand,fontWeight:600}}>R$ {reforma.totalRecolher.toLocaleString("pt-BR",{maximumFractionDigits:0})}</span>
-              </div>
+              {reforma.totalSaldoCredor>0 ? (
+                <div style={{display:"flex",justifyContent:"space-between",padding:"6px 8px",background:C.greenLt,border:"1px solid "+C.green+"44",borderRadius:2,marginBottom:4}}>
+                  <span style={{fontFamily:F.sans,fontSize:11,color:C.green,fontWeight:700}}>✓ SALDO CREDOR</span>
+                  <span style={{fontFamily:F.mono,fontSize:16,color:C.green,fontWeight:700}}>R$ {reforma.totalSaldoCredor.toLocaleString("pt-BR",{maximumFractionDigits:0})}</span>
+                </div>
+              ) : (
+                <div style={{display:"flex",justifyContent:"space-between",padding:"6px 8px",background:C.redLt,border:"1px solid "+C.red+"44",borderRadius:2,marginBottom:4}}>
+                  <span style={{fontFamily:F.sans,fontSize:11,color:C.red,fontWeight:700}}>⚠ TOTAL A RECOLHER</span>
+                  <span style={{fontFamily:F.mono,fontSize:16,color:C.red,fontWeight:700}}>R$ {reforma.totalRecolher.toLocaleString("pt-BR",{maximumFractionDigits:0})}</span>
+                </div>
+              )}
               <div style={{fontFamily:F.mono,fontSize:9,color:C.text3,textAlign:"right"}}>{pctCarga.toFixed(2)}% do faturamento</div>
+
+              {/* Tabela PIS/COFINS Hoje — só para Lucro Real */}
+              {regime==="Lucro Real" && (
+                <div style={{marginTop:10,padding:"10px 12px",background:C.bg2,border:"1px solid "+C.border,borderLeft:"3px solid "+C.teal,borderRadius:2}}>
+                  <div style={{fontFamily:F.sans,fontSize:9,color:C.teal,fontWeight:600,textTransform:"uppercase",letterSpacing:0.6,marginBottom:6}}>PIS/COFINS Hoje — Lucro Real (não-cumulativo)</div>
+                  {[
+                    {l:"Débito PIS/COFINS (9,25%)",  v:debitoHojeBruto, c:C.red},
+                    ...(creditoHojeLR>0?[{l:"(-) Crédito PIS/COFINS frota+terceiros",v:creditoHojeLR,c:C.green}]:[]),
+                  ].map((r,i)=>(
+                    <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"3px 0"}}>
+                      <span style={{fontFamily:F.sans,fontSize:10,color:C.text2}}>{r.l}</span>
+                      <span style={{fontFamily:F.mono,fontSize:10,color:r.c}}>R$ {r.v.toLocaleString("pt-BR",{maximumFractionDigits:0})}</span>
+                    </div>
+                  ))}
+                  <div style={{height:1,background:C.border,margin:"4px 0"}}/>
+                  <div style={{display:"flex",justifyContent:"space-between",padding:"3px 0"}}>
+                    <span style={{fontFamily:F.sans,fontSize:10,color:C.text,fontWeight:500}}>= PIS/COFINS a recolher hoje</span>
+                    <span style={{fontFamily:F.mono,fontSize:11,color:C.teal,fontWeight:600}}>R$ {hoje.toLocaleString("pt-BR",{maximumFractionDigits:0})}</span>
+                  </div>
+                  <div style={{fontFamily:F.mono,fontSize:8,color:C.text3,textAlign:"right",marginTop:2}}>{pctHojeEfetivo.toFixed(2)}% efetivo sobre o faturamento</div>
+                </div>
+              )}
 
                 {/* ── Impacto da Reforma Tributária ── */}
                 <div style={{height:1,background:C.border,margin:"10px 0 8px"}}/>
@@ -2072,6 +2175,8 @@ export default function App(){
   const [pctAgregados,setPctAgregados]=useState(10);
   const [regimeAgregado,setRegimeAgregado]=useState("Autônomo");
   const [margemAgregados,setMargemAgregados]=useState(20);
+  const [valorCompraImob,setValorCompraImob]=useState(0);
+  const [valorVendaImob,setValorVendaImob]=useState(0);
 
   // Diesel ao vivo
   const [precoDiesel,setPrecoDiesel]=useState(6.15);
@@ -2090,6 +2195,7 @@ export default function App(){
     insumosAtivosTerceiros,setInsumosAtivosTerceiros,insumosCustoTerceiros,setInsumosCustoTerceiros,
     usaAgregados,setUsaAgregados,pctAgregados,setPctAgregados,
     regimeAgregado,setRegimeAgregado,margemAgregados,setMargemAgregados,
+    valorCompraImob,setValorCompraImob,valorVendaImob,setValorVendaImob,
     insumosAtivosAgregados,setInsumosAtivosAgregados,insumosCustoAgregados,setInsumosCustoAgregados,
     despesasSCAtivas,setDespesasSCAtivas,despesasSCCusto,setDespesasSCCusto,
     precoDiesel,setPrecoDiesel,
