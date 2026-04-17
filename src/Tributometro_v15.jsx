@@ -1402,7 +1402,6 @@ function Oracle(){
           {/* Terceiros — inputs direto no sidebar */}
           <SL>Terceiros</SL>
           <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:8}}>
-            <NInput label="% do faturamento" hint="% pago a terceiros/mês" raw={rPT} setRaw={setRPT} onBlur={cPT} suffix="%"/>
             <NInput label="Margem transportadora" hint="base crédito = frete × (1−margem)" raw={rMT} setRaw={setRMT} onBlur={cMT} suffix="%"/>
           </div>
 
@@ -1441,46 +1440,6 @@ function Oracle(){
           </div>
           <div style={{fontFamily:F.sans,fontSize:9,color:m.cor,marginBottom:8}}>{m.label} — {m.total}% nominal</div>
 
-          <D my={10}/>
-          <div style={{fontFamily:F.sans,fontSize:9,color:C.text3,letterSpacing:0.8,textTransform:"uppercase",marginBottom:8,fontWeight:500}}>Impacto da Reforma</div>
-          <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:10}}>
-            {[
-              {rotulo:"Hoje",      desc:descHoje, val:hoje,    variacao:null, cor:C.text3, ativo:false},
-              {rotulo:String(ano), desc:m.label,            val:liqAno,  variacao:vAno, cor:colAno,  ativo:true },
-              {rotulo:"2033",      desc:"IVA Dual pleno",   val:liq2033, variacao:v33,  cor:col33,   ativo:false},
-            ].map((row,i)=>(
-              <div key={i} style={{padding:"8px 10px",borderRadius:2,background:row.ativo?row.cor+"15":C.bg2,border:"1px solid "+(row.ativo?row.cor+"55":C.border),borderLeft:"4px solid "+(row.ativo?row.cor:C.text3+"33")}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:2}}>
-                  <span style={{fontFamily:F.sans,fontSize:row.ativo?11:9,color:row.ativo?row.cor:C.text3,fontWeight:row.ativo?600:400}}>{row.rotulo}</span>
-                  <span style={{fontFamily:F.mono,fontSize:row.ativo?15:11,color:row.ativo?row.cor:C.text,fontWeight:row.ativo?700:400}}>R$ {row.val.toLocaleString("pt-BR",{maximumFractionDigits:0})}</span>
-                </div>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <span style={{fontFamily:F.sans,fontSize:8,color:C.text3}}>{row.desc}</span>
-                  <span style={{fontFamily:F.mono,fontSize:row.ativo?11:9,color:row.cor,fontWeight:row.ativo?600:400}}>
-                    {row.variacao===null?"referência":(row.variacao>0?"▲ +":"▼ ")+Math.abs(row.variacao).toFixed(0)+"%"}
-                  </span>
-                </div>
-                {row.ativo && (usaFrota||usaTerceiros) && (
-                  <div style={{marginTop:6,paddingTop:6,borderTop:"1px solid "+row.cor+"22",display:"flex",gap:6}}>
-                    {usaFrota && pctFrota>0 && (
-                      <div style={{flex:1,padding:"5px 7px",background:C.blueLt,border:"1px solid "+C.blue+"33",borderRadius:2}}>
-                        <div style={{fontFamily:F.sans,fontSize:8,color:C.blue,marginBottom:3}}>🚛 Frota {pctFrota}%</div>
-                        <div style={{fontFamily:F.mono,fontSize:11,color:C.blue,fontWeight:600}}>R$ {(reforma.creditoCBS_frota+reforma.creditoIBS_frota).toLocaleString("pt-BR",{maximumFractionDigits:0})}</div>
-                        <div style={{fontFamily:F.sans,fontSize:7,color:C.text3,marginTop:1}}>créditos gerados</div>
-                      </div>
-                    )}
-                    {usaTerceiros && pctTerceiros>0 && (
-                      <div style={{flex:1,padding:"5px 7px",background:C.amberLt,border:"1px solid "+C.amber+"33",borderRadius:2}}>
-                        <div style={{fontFamily:F.sans,fontSize:8,color:C.amber,marginBottom:3}}>👥 Terceiros {pctTerceiros}%</div>
-                        <div style={{fontFamily:F.mono,fontSize:11,color:C.amber,fontWeight:600}}>R$ {(reforma.creditoCBS_terceiros+reforma.creditoIBS_terceiros).toLocaleString("pt-BR",{maximumFractionDigits:0})}</div>
-                        <div style={{fontFamily:F.sans,fontSize:7,color:C.text3,marginTop:1}}>créditos gerados</div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
 
         </div>
 
@@ -1491,7 +1450,7 @@ function Oracle(){
           {(()=>{
             const baseTrib    = frete*(1-pctExportacao/100);
             const baseExp     = frete*pctExportacao/100;
-            const baseTer     = frete*pctTerceiros/100*(1-(margemTerceiros||0)/100);
+            const baseTer     = frete*(1-(margemTerceiros||0)/100);
             const tot         = mixAutonomo+mixSN+mixLucro||1;
             const baseAuto    = baseTer*(mixAutonomo/tot);
             const baseSN_mix  = baseTer*(mixSN/tot);
@@ -1972,7 +1931,7 @@ export default function App(){
 
   // Terceiros
   const [usaTerceiros,setUsaTerceiros]=useState(true);
-  const [pctTerceiros,setPctTerceiros]=useState(0);
+  const [pctTerceiros,setPctTerceiros]=useState(100);
   const [mixAutonomo,setMixAutonomo]=useState(20);
   const [mixSN,setMixSN]=useState(60);
   const [mixLucro,setMixLucro]=useState(20);
