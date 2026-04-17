@@ -798,7 +798,7 @@ function Oracle(){
   const [rCI,setRCI]=useState(String(valorCompraImob));
   const [rVI,setRVI]=useState(String(valorVendaImob));
   const [rDiesel,setRDiesel]=useState(String(precoDiesel));
-  const [subTab,setSubTab]=useState("frota");
+  const [subTab,setSubTab]=useState("terceiros");
   const [collapsed,setCollapsed]=useState({});
   const togCol=(k)=>setCollapsed(p=>({...p,[k]:!p[k]}));
 
@@ -1498,19 +1498,16 @@ function Oracle(){
         {/* Coluna direita — 3 Telas + Resultado */}
         <div style={{display:"flex",flexDirection:"column",gap:1,overflowY:isMob?"visible":"auto",height:isMob?"auto":"100%"}}>
 
-          {/* Tabs: Frota / Terceiros / Agregados */}
-          <div style={{background:C.bg1,padding:"10px 16px",borderBottom:"1px solid "+C.border,display:"flex",gap:2}}>
-            {[
-              {id:"frota",      label:"🚛 Frota Própria",cor:C.blue,  ativo:usaFrota},
-              {id:"terceiros",  label:"👥 Terceiros",    cor:C.amber, ativo:usaTerceiros},
-            ].map(t=>(
-              <button key={t.id} onClick={()=>setSubTab(t.id)}
-                style={{flex:1,border:"1px solid "+(subTab===t.id?t.cor:C.border),background:subTab===t.id?t.cor+"18":"transparent",color:subTab===t.id?t.cor:C.text2,
-                  borderRadius:2,padding:"8px 12px",cursor:"pointer",fontFamily:F.sans,fontSize:11,fontWeight:subTab===t.id?600:400,transition:"all 0.12s",
-                  opacity:t.ativo?1:0.4}}>
-                {t.label} {!t.ativo && <span style={{fontSize:8}}>(desativado)</span>}
-              </button>
-            ))}
+          {/* Tabs — Terceiros foco principal */}
+          <div style={{background:C.bg1,padding:"10px 16px",borderBottom:"1px solid "+C.border,display:"flex",gap:2,alignItems:"center"}}>
+            <div style={{flex:1,display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontFamily:F.sans,fontSize:13,fontWeight:600,color:C.amber}}>👥 Terceiros / Subcontratados</span>
+              <span style={{fontFamily:F.sans,fontSize:9,color:C.text3}}>Transportadores contratados via CT-e</span>
+            </div>
+            <button onClick={()=>setSubTab(subTab==="frota"?"terceiros":"frota")}
+              style={{border:"1px solid "+C.border,background:"transparent",color:C.text3,borderRadius:2,padding:"4px 10px",cursor:"pointer",fontFamily:F.sans,fontSize:9,WebkitTapHighlightColor:"transparent"}}>
+              {subTab==="frota"?"← Voltar":"⚙ Frota Própria"}
+            </button>
           </div>
 
           {/* Conteúdo da sub-tab */}
@@ -1616,49 +1613,36 @@ function Oracle(){
 
             {/* ═══ TAB: TERCEIROS ═══ */}
             {subTab==="terceiros" && (
-              <div>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-                  <div>
-                    <div style={{fontFamily:F.sans,fontSize:12,fontWeight:600,color:C.amber}}>Terceiros / Subcontratados</div>
-                    <div style={{fontFamily:F.sans,fontSize:9,color:C.text3}}>Transportadores contratados via CT-e — crédito depende do regime tributário do terceiro</div>
+              <div style={{display:"grid",gridTemplateColumns:isMob?"1fr":"1fr 1fr",gap:12,alignItems:"start"}}>
+
+                {/* ── COL A: INPUTS ── */}
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+
+                  {/* % e Margem */}
+                  <NInput label="% Terceiros do faturamento" hint="% do faturamento mensal" raw={rPT} setRaw={setRPT} onBlur={cPT} suffix="%"/>
+                  <NInput label="Margem da transportadora" hint="base crédito = frete × (1 − margem)" raw={rMT} setRaw={setRMT} onBlur={cMT} suffix="%"/>
+                  <div style={{padding:"5px 10px",background:C.bg2,border:"1px solid "+C.border,borderRadius:2,fontFamily:F.sans,fontSize:9,color:C.text2}}>
+                    Base de crédito: <span style={{fontFamily:F.mono,color:C.amber}}>R$ {(frete*pctTerceiros/100*(1-margemTerceiros/100)).toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês</span>
                   </div>
-                  <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer"}}>
-                    <input type="checkbox" checked={usaTerceiros} onChange={()=>setUsaTerceiros(!usaTerceiros)} style={{width:16,height:16,accentColor:C.amber}}/>
-                    <span style={{fontFamily:F.sans,fontSize:10,color:usaTerceiros?C.amber:C.text3}}>Ativo</span>
-                  </label>
-                </div>
-                {!usaTerceiros ? (
-                  <div style={{padding:"20px",textAlign:"center",background:C.bg2,border:"1px solid "+C.border,borderRadius:4}}>
-                    <div style={{fontFamily:F.sans,fontSize:11,color:C.text3}}>Ative terceiros para configurar o mix de fornecedores</div>
-                  </div>
-                ) : (
-                  <>
-                    <div style={{marginBottom:8,padding:"6px 10px",background:C.bg2,border:"1px solid "+C.border,fontFamily:F.sans,fontSize:9,color:C.text2}}>
-                      Terceiros: <span style={{fontFamily:F.mono,color:C.amber}}>{pctTerceiros}% do faturamento</span> = R$ {(frete*pctTerceiros/100).toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês. Ajuste o % na barra lateral.
+
+                  {/* Mix de regime */}
+                  <div style={{paddingTop:4,borderTop:"1px solid "+C.border}}>
+                    <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,fontWeight:600,textTransform:"uppercase",letterSpacing:0.5,marginBottom:6}}>Mix de regime dos terceiros</div>
+
+                    {/* Autônomo destacado */}
+                    <div style={{padding:"6px 10px",background:C.amberLt,border:"1px solid "+C.amber+"44",borderLeft:"3px solid "+C.amber,borderRadius:2,marginBottom:6}}>
+                      <div style={{fontFamily:F.sans,fontSize:9,color:C.amber,fontWeight:500,marginBottom:4}}>Autônomo (TAC/TRC) — CBS 1,86%</div>
+                      <NInput label="% autônomo no mix" hint="CBS 1,86% — menor crédito" raw={rA} setRaw={setRA} onBlur={cA} suffix="%"/>
                     </div>
-                    <div style={{marginTop:6}}>
-                      <NInput label="Margem da transportadora sobre o frete terceirizado" hint="base do crédito = frete × (1 − margem)" raw={rMT} setRaw={setRMT} onBlur={cMT} suffix="%"/>
-                    </div>
-                    <div style={{marginTop:6,padding:"5px 10px",background:C.bg2,border:"1px solid "+C.border,fontFamily:F.sans,fontSize:9,color:C.text2}}>
-                      Base do crédito = R$ {(frete*pctTerceiros/100*(1-margemTerceiros/100)).toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês &nbsp;·&nbsp; Crédito CBS do terceiro depende do regime: autônomo 1,86%, SN 2,50%, {regimeLucroTerceiros==="Lucro Real"?"LR 9,3%":"LP 9,25%"}.
-                    </div>
-                    <D my={8}/>
-                    <div onClick={()=>togCol("tercRegime")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",padding:"10px 12px",marginBottom:4,userSelect:"none",background:C.bg2,border:"1px solid "+C.border,borderRadius:3,minHeight:44,WebkitTapHighlightColor:"transparent",touchAction:"manipulation"}}>
-                      <span style={{fontFamily:F.sans,fontSize:10,color:C.text2,fontWeight:600,textTransform:"uppercase",letterSpacing:0.6}}>Regime tributário dos terceiros</span>
-                      <span style={{fontFamily:F.mono,fontSize:11,color:C.text,background:C.bg3,borderRadius:3,padding:"3px 10px",minWidth:32,textAlign:"center",border:"1px solid "+C.border}}>{collapsed["tercRegime"]?"▶ abrir":"▼ recolher"}</span>
-                    </div>
-                    <div style={{display:collapsed["tercRegime"]?"none":"flex",flexDirection:"column",gap:6}}>
-                      <div style={{padding:"6px 10px",background:C.amberLt,border:"1px solid "+C.amber+"44",borderLeft:"3px solid "+C.amber,borderRadius:2}}>
-                        <div style={{fontFamily:F.sans,fontSize:9,color:C.amber,fontWeight:500,marginBottom:4}}>Autônomo (TAC/TRC) — CBS 1,86%</div>
-                        <NInput label="% do mix de terceiros que é autônomo" hint="Transportadores autônomos — alíquota CBS 1,86%" raw={rA} setRaw={setRA} onBlur={cA} suffix="%"/>
-                      </div>
+
+                    <div style={{display:"flex",flexDirection:"column",gap:4}}>
                       <NInput label="Simples Nacional" hint="CBS 2,50%" raw={rS} setRaw={setRS} onBlur={cS} suffix="%"/>
                       <div>
                         <div style={{display:"flex",gap:4,marginBottom:4,alignItems:"center"}}>
                           <span style={{fontFamily:F.sans,fontSize:9,color:C.text2,marginRight:4}}>Lucro:</span>
                           {["Lucro Real","Lucro Presumido"].map(opt=>(
                             <button key={opt} onClick={()=>setRegimeLucroTerceiros(opt)}
-                              style={{border:"1px solid "+(regimeLucroTerceiros===opt?C.brand:C.border),background:regimeLucroTerceiros===opt?C.brand+"18":C.bg2,color:regimeLucroTerceiros===opt?C.brand:C.text2,borderRadius:2,padding:"3px 8px",cursor:"pointer",fontFamily:F.sans,fontSize:9,transition:"all 0.12s"}}>
+                              style={{border:"1px solid "+(regimeLucroTerceiros===opt?C.brand:C.border),background:regimeLucroTerceiros===opt?C.brand+"18":C.bg2,color:regimeLucroTerceiros===opt?C.brand:C.text2,borderRadius:2,padding:"3px 8px",cursor:"pointer",fontFamily:F.sans,fontSize:9,transition:"all 0.12s",WebkitTapHighlightColor:"transparent"}}>
                               {opt==="Lucro Real"?"LR 9,3%":"LP 9,25%"}
                             </button>
                           ))}
@@ -1666,73 +1650,74 @@ function Oracle(){
                         <NInput label={"Lucro Presumido / Real"} hint={"CBS "+(regimeLucroTerceiros==="Lucro Real"?"9,3%":"9,25%")} raw={rL} setRaw={setRL} onBlur={cL} suffix="%"/>
                       </div>
                     </div>
-                    <div style={{marginTop:6,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+
+                    {/* Total mix */}
+                    <div style={{marginTop:6,display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 8px",background:mixTot===100?C.greenLt:C.redLt,border:"1px solid "+(mixTot===100?C.green+"33":C.red+"33"),borderRadius:2}}>
                       <span style={{fontFamily:F.sans,fontSize:9,color:C.text3}}>Total mix:</span>
-                      <span style={{fontFamily:F.mono,fontSize:10,color:mixColor}}>
+                      <span style={{fontFamily:F.mono,fontSize:10,color:mixColor,fontWeight:600}}>
                         {mixTot}% {mixTot===100?"✓":mixTot>100?"(>100%)":"(revisar)"}
                       </span>
                     </div>
-                    <div style={{marginTop:8,padding:"7px 10px",background:C.bg2,border:"1px solid "+C.border,borderLeft:"2px solid "+C.green,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <span style={{fontFamily:F.mono,fontSize:10,color:C.green}}>Crédito CBS médio: {calcCBSCredito(mixAutonomo,mixSN,mixLucro,lucroRateTerceiros).toFixed(3)}%</span>
-                      <span style={{fontFamily:F.sans,fontSize:9,color:C.text3}}>≈ R$ {reforma.creditoCBS_terceiros.toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês</span>
+                  </div>
+                </div>
+
+                {/* ── COL B: RESULTADO AO VIVO ── */}
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+
+                  {/* Crédito CBS médio — destaque */}
+                  <div style={{padding:"12px 14px",background:C.greenLt,border:"1px solid "+C.green+"44",borderLeft:"4px solid "+C.green,borderRadius:3}}>
+                    <div style={{fontFamily:F.sans,fontSize:9,color:C.green,textTransform:"uppercase",letterSpacing:0.5,marginBottom:4}}>Crédito CBS médio do mix</div>
+                    <div style={{fontFamily:F.mono,fontSize:22,color:C.green,fontWeight:700,lineHeight:1}}>{calcCBSCredito(mixAutonomo,mixSN,mixLucro,lucroRateTerceiros).toFixed(3)}%</div>
+                    <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginTop:4}}>média ponderada por regime dos terceiros</div>
+                  </div>
+
+                  {/* Créditos CBS + IBS */}
+                  <div style={{display:"flex",gap:6}}>
+                    <div style={{flex:1,padding:"8px 10px",background:C.bg2,border:"1px solid "+C.border,borderRadius:2,textAlign:"center"}}>
+                      <div style={{fontFamily:F.sans,fontSize:8,color:C.blue,textTransform:"uppercase",letterSpacing:0.4,marginBottom:4}}>Crédito CBS</div>
+                      <div style={{fontFamily:F.mono,fontSize:12,color:C.blue,fontWeight:600}}>R$ {reforma.creditoCBS_terceiros.toLocaleString("pt-BR",{maximumFractionDigits:0})}</div>
                     </div>
-                    <div style={{marginTop:8,padding:"7px 10px",background:C.amberLt,border:"1px solid "+C.amber+"33",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <span style={{fontFamily:F.sans,fontSize:10,color:C.amber,fontWeight:500}}>Total créditos terceiros</span>
-                      <span style={{fontFamily:F.mono,fontSize:11,color:C.amber,fontWeight:600}}>R$ {(reforma.creditoCBS_terceiros+reforma.creditoIBS_terceiros).toLocaleString("pt-BR",{maximumFractionDigits:0})}</span>
+                    <div style={{flex:1,padding:"8px 10px",background:C.bg2,border:"1px solid "+C.border,borderRadius:2,textAlign:"center"}}>
+                      <div style={{fontFamily:F.sans,fontSize:8,color:C.purple,textTransform:"uppercase",letterSpacing:0.4,marginBottom:4}}>Crédito IBS</div>
+                      <div style={{fontFamily:F.mono,fontSize:12,color:C.purple,fontWeight:600}}>R$ {reforma.creditoIBS_terceiros.toLocaleString("pt-BR",{maximumFractionDigits:0})}</div>
                     </div>
-                    <D my={10}/>
-                    <div onClick={()=>togCol("tercInsumos")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",padding:"10px 12px",marginBottom:4,userSelect:"none",background:C.bg2,border:"1px solid "+C.border,borderRadius:3,minHeight:44,WebkitTapHighlightColor:"transparent",touchAction:"manipulation"}}>
-                      <span style={{fontFamily:F.sans,fontSize:10,color:C.text2,fontWeight:600,textTransform:"uppercase",letterSpacing:0.6}}>Insumos operacionais com crédito</span>
-                      <span style={{fontFamily:F.mono,fontSize:11,color:C.text,background:C.bg3,borderRadius:3,padding:"3px 10px",minWidth:32,textAlign:"center",border:"1px solid "+C.border}}>{collapsed["tercInsumos"]?"▶ abrir":"▼ recolher"}</span>
-                    </div>
-                    <div style={{display:collapsed["tercInsumos"]?"none":undefined}}>
-                    <div style={{marginBottom:6,fontFamily:F.sans,fontSize:9,color:C.text2}}>
-                      Custos diretos da transportadora neste segmento (base: R$ {(frete*pctTerceiros/100).toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês)
-                    </div>
-                    <div style={{display:"flex",flexDirection:"column",gap:4}}>
-                      {INSUMOS_FROTA.map(insumo=>(
-                        <InsumoCheck
-                          key={insumo.id}
-                          insumo={insumo}
-                          ativo={insumosAtivosTerceiros[insumo.id]||false}
-                          custo={insumosCustoTerceiros[insumo.id]||0}
-                          onToggle={()=>toggleInsumoTerceiros(insumo.id)}
-                          onCustoChange={(v)=>setInsumoCustoTerceiros(insumo.id,v)}
-                        />
+                  </div>
+                  <div style={{padding:"8px 12px",background:C.amberLt,border:"1px solid "+C.amber+"44",borderRadius:2,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <span style={{fontFamily:F.sans,fontSize:10,color:C.amber,fontWeight:500}}>Total créditos terceiros</span>
+                    <span style={{fontFamily:F.mono,fontSize:14,color:C.amber,fontWeight:700}}>R$ {(reforma.creditoCBS_terceiros+reforma.creditoIBS_terceiros).toLocaleString("pt-BR",{maximumFractionDigits:0})}</span>
+                  </div>
+
+                  {/* Impacto da Reforma */}
+                  <div style={{paddingTop:4,borderTop:"1px solid "+C.border}}>
+                    <div style={{fontFamily:F.sans,fontSize:9,color:C.text3,textTransform:"uppercase",letterSpacing:0.5,marginBottom:6}}>Impacto da reforma tributária</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:3}}>
+                      {[
+                        {rotulo:"Hoje",      desc:descHoje,          val:hoje,    variacao:null, cor:C.text3, ativo:false},
+                        {rotulo:String(ano), desc:m.label,           val:liqAno,  variacao:vAno, cor:colAno,  ativo:true },
+                        {rotulo:"2033",      desc:"IVA Dual pleno",  val:liq2033, variacao:v33,  cor:col33,   ativo:false},
+                      ].map((row,i)=>(
+                        <div key={i} style={{
+                          padding:"7px 10px",borderRadius:2,
+                          background:row.ativo?row.cor+"15":C.bg2,
+                          border:"1px solid "+(row.ativo?row.cor+"55":C.border),
+                          borderLeft:"4px solid "+(row.ativo?row.cor:C.text3+"33"),
+                        }}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:1}}>
+                            <span style={{fontFamily:F.sans,fontSize:row.ativo?11:9,color:row.ativo?row.cor:C.text3,fontWeight:row.ativo?600:400}}>{row.rotulo}</span>
+                            <span style={{fontFamily:F.mono,fontSize:row.ativo?14:11,color:row.ativo?row.cor:C.text,fontWeight:row.ativo?700:400}}>R$ {row.val.toLocaleString("pt-BR",{maximumFractionDigits:0})}</span>
+                          </div>
+                          <div style={{display:"flex",justifyContent:"space-between"}}>
+                            <span style={{fontFamily:F.sans,fontSize:8,color:C.text3}}>{row.desc}</span>
+                            <span style={{fontFamily:F.mono,fontSize:9,color:row.cor,fontWeight:row.ativo?600:400}}>
+                              {row.variacao===null?"referência":(row.variacao>0?"▲ +":"▼ ")+Math.abs(row.variacao).toFixed(0)+"%"}
+                            </span>
+                          </div>
+                        </div>
                       ))}
                     </div>
-                    </div>
-                    {reforma.detalheTerceiros.length > 0 && (
-                      <div style={{marginTop:10}}>
-                        <div onClick={()=>togCol("tercCreditos")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",padding:"10px 12px",marginBottom:4,userSelect:"none",background:C.bg2,border:"1px solid "+C.border,borderRadius:3,minHeight:44,WebkitTapHighlightColor:"transparent",touchAction:"manipulation"}}>
-                          <span style={{fontFamily:F.sans,fontSize:10,color:C.text2,fontWeight:600,textTransform:"uppercase",letterSpacing:0.6}}>Créditos de insumos adicionais</span>
-                          <span style={{fontFamily:F.mono,fontSize:11,color:C.text,background:C.bg3,borderRadius:3,padding:"3px 10px",minWidth:32,textAlign:"center",border:"1px solid "+C.border}}>{collapsed["tercCreditos"]?"▶ abrir":"▼ recolher"}</span>
-                        </div>
-                        <div style={{display:collapsed["tercCreditos"]?"none":undefined}}>
-                        <table style={{width:"100%",borderCollapse:"collapse"}}>
-                          <thead>
-                            <tr style={{borderBottom:"1px solid "+C.border}}>
-                              {["Insumo","Custo/mês","Créd.CBS","Créd.IBS"].map(h=>(
-                                <th key={h} style={{fontFamily:F.sans,fontSize:9,color:C.text2,padding:"4px 0",textAlign:"left",fontWeight:400}}>{h}</th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {reforma.detalheTerceiros.map((d,i)=>(
-                              <tr key={i} style={{borderBottom:"1px solid "+C.border}}>
-                                <td style={{fontFamily:F.sans,fontSize:10,color:C.text2,padding:"5px 0"}}>{d.nome}</td>
-                                <td style={{fontFamily:F.mono,fontSize:10,color:C.text3}}>R$ {d.custo.toLocaleString("pt-BR",{maximumFractionDigits:0})}</td>
-                                <td style={{fontFamily:F.mono,fontSize:10,color:C.blue}}>R$ {d.creditoCBS.toLocaleString("pt-BR",{maximumFractionDigits:0})}</td>
-                                <td style={{fontFamily:F.mono,fontSize:10,color:C.purple}}>R$ {d.creditoIBS.toLocaleString("pt-BR",{maximumFractionDigits:0})}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
+                  </div>
+
+                </div>
               </div>
             )}
 
@@ -2132,7 +2117,7 @@ export default function App(){
   const [pctExportacao,setPctExportacao]=useState(0);
 
   // Frota própria
-  const [usaFrota,setUsaFrota]=useState(true);
+  const [usaFrota,setUsaFrota]=useState(false);
   const [pctFrota,setPctFrota]=useState(0);
   const [insumosAtivos,setInsumosAtivos]=useState({
     diesel:true, gasolina:false, gnv:false, pecas:true, pneus:true, manutencao:true, pedagios:true, outras:false,
