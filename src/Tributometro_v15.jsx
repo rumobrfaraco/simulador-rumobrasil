@@ -1326,563 +1326,319 @@ function Oracle(){
     doc.save("RumoBrasil_Analise-Tributaria_" + m.ano + "_" + new Date().toISOString().slice(0,10) + ".pdf");
   };
 
+
+  // ── Cálculos para layout do rascunho ──
+  const aliqPIS   = regime==="Lucro Real"?9.25:3.65;
+  const baseTerN  = frete*(1-(margemTerceiros||0)/100);
+  const mixN      = mixAutonomo+mixSN+mixLucro||1;
+  const bPF_      = baseTerN*(mixAutonomo/mixN);
+  const bSN_      = baseTerN*(mixSN/mixN);
+  const bPJN_     = baseTerN*(mixLucro/mixN);
+  const pisDeb_   = baseExec*aliqPIS/100;
+  const pisCrPF_  = bPF_ *0.75*aliqPIS/100;
+  const pisCrSN_  = bSN_ *0.75*aliqPIS/100;
+  const pisCrPJN_ = bPJN_*1.00*aliqPIS/100;
+  const pisCrTot_ = pisCrPF_+pisCrSN_+pisCrPJN_;
+  const pisCusto_ = pisDeb_-pisCrTot_;
+  const cbsDeb_   = reforma.cbsDebito;
+  const ibsDeb_   = reforma.ibsDebito;
+  const cbsCrPF_  = bPF_ *CBS_CRED.autonomo/100;
+  const cbsCrSN_  = bSN_ *CBS_CRED.simplesNacional/100;
+  const cbsCrPJN_ = bPJN_*lucroRateTerceiros/100;
+  const cbsCrTot_ = reforma.creditoCBS_terceiros;
+  const ibsCrTot_ = reforma.creditoIBS_terceiros;
+  const cbsCusto_ = reforma.totalRecolher;
+  const BRL_      = (v)=>"R$ "+(v||0).toLocaleString("pt-BR",{maximumFractionDigits:0});
+
   return(
     <div style={{display:"flex",flexDirection:"column",height:isMob?"auto":"calc(100vh - 48px)",minHeight:isMob?"100svh":"auto"}}>
-      {/* Sub-header */}
-      <div style={{background:C.bg1,borderBottom:"1px solid "+C.border,padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,flexWrap:"wrap",gap:8}}>
+
+      {/* ── Sub-header ── */}
+      <div style={{background:C.bg1,borderBottom:"1px solid "+C.border,padding:"10px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,flexWrap:"wrap",gap:8}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <span style={{width:6,height:6,borderRadius:"50%",background:C.green,display:"inline-block",animation:"liveDot 2s infinite"}}/>
-          <span style={{fontFamily:F.sans,fontSize:13,fontWeight:600,color:C.text}}>Simulador TRC</span>
+          <span style={{fontFamily:F.sans,fontSize:13,fontWeight:700,color:C.text}}>Terceirização</span>
           <Bdg color={C.brand}>REFORMA</Bdg>
           <span style={{fontFamily:F.sans,fontSize:10,color:C.text3}}>CBS + IBS — LC 214/2025</span>
         </div>
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <span style={{fontFamily:F.sans,fontSize:10,color:C.text2}}>Somente Reforma Tributária (a partir de 2027)</span>
-          <button onClick={()=>gerarPDF()}
-            style={{display:"flex",alignItems:"center",gap:5,border:"none",background:C.brand,color:"#fff",borderRadius:2,padding:"5px 12px",cursor:"pointer",fontFamily:F.sans,fontSize:10,fontWeight:600,letterSpacing:0.3}}>
-            ↓ Exportar PDF
-          </button>
+        <button onClick={()=>gerarPDF()} style={{display:"flex",alignItems:"center",gap:5,border:"none",background:C.brand,color:"#fff",borderRadius:2,padding:"5px 12px",cursor:"pointer",fontFamily:F.sans,fontSize:10,fontWeight:600,letterSpacing:0.3}}>
+          ↓ Exportar PDF
+        </button>
+      </div>
+
+      {/* ── INPUTS ── */}
+      <div style={{background:C.bg1,borderBottom:"2px solid "+C.border,padding:"12px 20px",flexShrink:0}}>
+        <div style={{display:"flex",flexWrap:"wrap",gap:12,alignItems:"flex-end"}}>
+
+          {/* Bloco 1: Faturamento / Exportação / Margem */}
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end",paddingRight:12,borderRight:"1px solid "+C.border}}>
+            <NInput label="Faturamento / mês" raw={rf} setRaw={setRf} onBlur={cf} prefix="R$"/>
+            <NInput label="% Exportação" raw={rExp} setRaw={setRExp} onBlur={cExp} suffix="%"/>
+            <NInput label="Margem" raw={rMT} setRaw={setRMT} onBlur={cMT} suffix="%"/>
+          </div>
+
+          {/* Bloco 2: Mix PF / PJSN / PJN */}
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end",paddingRight:12,borderRight:"1px solid "+C.border}}>
+            <NInput label="% PF (autônomo)" raw={rA} setRaw={setRA} onBlur={cA} suffix="%"/>
+            <NInput label="% PJSN" raw={rS} setRaw={setRS} onBlur={cS} suffix="%"/>
+            <NInput label="% PJN" raw={rL} setRaw={setRL} onBlur={cL} suffix="%"/>
+            <div style={{paddingBottom:6}}>
+              <div style={{fontFamily:F.mono,fontSize:12,fontWeight:700,color:mixColor}}>{mixTot}%{mixTot===100?" ✓":""}</div>
+              <div style={{fontFamily:F.sans,fontSize:8,color:C.text3}}>total mix</div>
+            </div>
+          </div>
+
+          {/* Bloco 3: Regime da empresa */}
+          <div style={{paddingRight:12,borderRight:"1px solid "+C.border}}>
+            <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginBottom:4,textTransform:"uppercase",letterSpacing:0.5}}>Regime da empresa</div>
+            <div style={{display:"flex",gap:3,flexWrap:"wrap"}}>
+              {[{r:"Lucro Real",l:"LR — 9,25%"},{r:"Lucro Presumido",l:"LP — 3,65%"},{r:"Simples Nacional",l:"SN — 3,65%"}].map(({r,l})=>(
+                <button key={r} onClick={()=>setRegime(r)} style={{border:"1px solid "+(regime===r?C.brand:C.border),background:regime===r?C.brand+"18":C.bg2,color:regime===r?C.brand:C.text2,borderRadius:2,padding:"5px 8px",cursor:"pointer",fontFamily:F.sans,fontSize:9,transition:"all 0.12s",WebkitTapHighlightColor:"transparent"}}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Bloco 4: Regime PJN terceiros */}
+          <div style={{paddingRight:12,borderRight:"1px solid "+C.border}}>
+            <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginBottom:4,textTransform:"uppercase",letterSpacing:0.5}}>Regime PJN (terceiros)</div>
+            <div style={{display:"flex",gap:3}}>
+              {[{r:"Lucro Real",l:"LR — 9,3%"},{r:"Lucro Presumido",l:"LP — 9,25%"}].map(({r,l})=>(
+                <button key={r} onClick={()=>setRegimeLucroTerceiros(r)} style={{border:"1px solid "+(regimeLucroTerceiros===r?C.brand:C.border),background:regimeLucroTerceiros===r?C.brand+"18":C.bg2,color:regimeLucroTerceiros===r?C.brand:C.text2,borderRadius:2,padding:"5px 8px",cursor:"pointer",fontFamily:F.sans,fontSize:9,transition:"all 0.12s",WebkitTapHighlightColor:"transparent"}}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Bloco 5: Ano simulado */}
+          <div>
+            <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginBottom:4,textTransform:"uppercase",letterSpacing:0.5}}>Ano simulado</div>
+            <div style={{display:"flex",gap:3,flexWrap:"wrap"}}>
+              {MILES.map(mi=>(
+                <button key={mi.ano} onClick={()=>setAno(mi.ano)} style={{border:"1px solid "+(ano===mi.ano?mi.cor:C.border),background:ano===mi.ano?mi.cor+"18":C.bg2,color:ano===mi.ano?mi.cor:C.text2,borderRadius:2,padding:"5px 8px",cursor:"pointer",fontFamily:F.mono,fontSize:9,transition:"all 0.12s",WebkitTapHighlightColor:"transparent"}}>
+                  {mi.ano}
+                </button>
+              ))}
+            </div>
+          </div>
+
         </div>
       </div>
 
-      {/* Grid principal */}
-      <div style={{display:"grid",gridTemplateColumns:isMob?"1fr":"300px 1fr",gap:1,flex:isMob?undefined:1,overflow:isMob?"visible":"hidden"}}>
+      {/* ── CONTEÚDO: Duas colunas de cálculo ── */}
+      <div style={{display:"grid",gridTemplateColumns:isMob?"1fr":"1fr 1fr",flex:isMob?undefined:1,overflow:isMob?"visible":"hidden"}}>
 
-        {/* Coluna esquerda — Perfil */}
-        <div style={{background:C.bg1,padding:"14px 16px",overflowY:isMob?"visible":"auto",height:isMob?"auto":"100%"}}>
-          <SL>Perfil do cliente</SL>
+        {/* ════ ESQUERDA: PIS/COFINS ════ */}
+        <div style={{borderRight:"2px solid "+C.border,padding:"24px",overflowY:isMob?"visible":"auto",background:C.bg1}}>
 
-          <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:12}}>
-            <NInput label="Faturamento / mês" raw={rf} setRaw={setRf} onBlur={cf} prefix="R$"/>
+          <div style={{marginBottom:20,paddingBottom:12,borderBottom:"2px solid "+C.border}}>
+            <div style={{fontFamily:F.sans,fontSize:18,fontWeight:800,color:C.text,letterSpacing:-0.5}}>PIS / COFINS</div>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4}}>
+              <span style={{fontFamily:F.mono,fontSize:13,color:C.text2,fontWeight:600}}>Alíquota: {aliqPIS}%</span>
+              <Bdg color={C.text3}>{regime}</Bdg>
+            </div>
           </div>
 
-          <D my={6}/>
-
-          {/* Regime tributário */}
-          <SL>Regime tributário</SL>
-          <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:6}}>
-            {[
-              {r:"Simples Nacional",  cor:C.red,   hint:"Sem direito a créditos CBS/IBS"},
-              {r:"Lucro Presumido",   cor:C.brand, hint:"Crédito CBS sobre insumos (~65%)"},
-              {r:"Lucro Real",        cor:C.green, hint:"Crédito CBS pleno sobre insumos"},
-            ].map(({r,cor,hint})=>(
-              <button key={r} onClick={()=>setRegime(r)}
-                style={{display:"flex",justifyContent:"space-between",alignItems:"center",border:"1px solid "+(regime===r?cor:C.border),background:regime===r?cor+"18":C.bg2,borderRadius:3,padding:"8px 12px",cursor:"pointer",minHeight:44,WebkitTapHighlightColor:"transparent",touchAction:"manipulation",transition:"all 0.12s"}}>
-                <span style={{fontFamily:F.sans,fontSize:10,color:regime===r?cor:C.text2,fontWeight:regime===r?600:400}}>{r}</span>
-                {regime===r && <span style={{fontFamily:F.sans,fontSize:8,color:cor,maxWidth:120,textAlign:"right",lineHeight:1.3}}>{hint}</span>}
-              </button>
-            ))}
-          </div>
-          {regime==="Simples Nacional" && (
-            <div style={{marginBottom:6,padding:"5px 8px",background:C.redLt,border:"1px solid "+C.red+"33",borderRadius:2,fontFamily:F.sans,fontSize:9,color:C.red}}>
-              ⚠️ SN: todos os créditos CBS/IBS zerados — débito integral
+          <div style={{marginBottom:4,fontFamily:F.sans,fontSize:9,fontWeight:600,color:C.text3,textTransform:"uppercase",letterSpacing:0.6}}>Débito</div>
+          {[
+            {label:"Faturamento bruto", val:BRL_(frete), dim:true},
+            ...(pctExportacao>0?[{label:"(-) Exportação imune "+pctExportacao+"%", val:"("+BRL_(frete*pctExportacao/100)+")", color:C.green}]:[]),
+            {label:"Base tributável", val:BRL_(baseExec), bold:true},
+            {label:"× Alíquota "+aliqPIS+"%", val:"↓", dim:true},
+          ].map((row,i)=>(
+            <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid "+C.border+"55"}}>
+              <span style={{fontFamily:F.sans,fontSize:10,color:row.color||(row.dim?C.text3:C.text),fontWeight:row.bold?600:400}}>{row.label}</span>
+              <span style={{fontFamily:F.mono,fontSize:10,color:row.color||(row.bold?C.text:C.text2)}}>{row.val}</span>
             </div>
-          )}
-          {regime==="Simples Nacional" && frete*12>4800000 && (
-            <div style={{marginBottom:6,padding:"7px 10px",background:"#FEF2F2",border:"2px solid "+C.red,borderRadius:3,fontFamily:F.sans,fontSize:9,color:C.red,lineHeight:1.5}}>
-              <div style={{fontWeight:700,marginBottom:2}}>⛔ LIMITE SN ULTRAPASSADO</div>
-              Faturamento anual projetado: <strong>R$ {(frete*12).toLocaleString("pt-BR",{maximumFractionDigits:0})}</strong><br/>
-              Limite Simples Nacional (LC 123/2006): R$ 4.800.000/ano<br/>
-              Empresa não pode optar pelo Simples Nacional neste faturamento.
-            </div>
-          )}
-
-          <D my={6}/>
-
-          {/* Exportação */}
-          <NInput label="% Exportação" hint="imune CBS/IBS — créditos mantidos e acumuláveis" raw={rExp} setRaw={setRExp} onBlur={cExp} suffix="%"/>
-          {pctExportacao > 0 && (
-            <div style={{marginTop:4,padding:"5px 8px",background:C.greenLt,border:"1px solid "+C.green+"33",borderRadius:2,fontFamily:F.sans,fontSize:9,color:C.green}}>
-              Exportação: {pctExportacao}% imune (LC 214/2025, art. 7º) — créditos mantidos e acumuláveis
-            </div>
-          )}
-
-          <D my={8}/>
-
-          {/* Terceiros — inputs direto no sidebar */}
-          <SL>Terceiros</SL>
-          <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:8}}>
-            <NInput label="Margem transportadora" hint="base crédito = frete × (1−margem)" raw={rMT} setRaw={setRMT} onBlur={cMT} suffix="%"/>
+          ))}
+          <div style={{marginTop:8,marginBottom:20,padding:"10px 14px",background:C.redLt,border:"1px solid "+C.red+"44",borderLeft:"4px solid "+C.red,borderRadius:3,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontFamily:F.sans,fontSize:11,color:C.red,fontWeight:600}}>DÉBITO PIS/COFINS</span>
+            <span style={{fontFamily:F.mono,fontSize:20,color:C.red,fontWeight:800}}>{BRL_(pisDeb_)}</span>
           </div>
 
-          <SL>Mix de regime dos terceiros</SL>
-          <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:4}}>
-            <NInput label="Autônomo (TAC/TRC)" hint="CBS 1,86%" raw={rA} setRaw={setRA} onBlur={cA} suffix="%"/>
-            <NInput label="Simples Nacional" hint="CBS 2,50%" raw={rS} setRaw={setRS} onBlur={cS} suffix="%"/>
-            <div>
-              <div style={{display:"flex",gap:4,marginBottom:4,alignItems:"center"}}>
-                {["Lucro Real","Lucro Presumido"].map(opt=>(
-                  <button key={opt} onClick={()=>setRegimeLucroTerceiros(opt)}
-                    style={{border:"1px solid "+(regimeLucroTerceiros===opt?C.brand:C.border),background:regimeLucroTerceiros===opt?C.brand+"18":C.bg2,color:regimeLucroTerceiros===opt?C.brand:C.text2,borderRadius:2,padding:"3px 8px",cursor:"pointer",fontFamily:F.sans,fontSize:9,transition:"all 0.12s",WebkitTapHighlightColor:"transparent"}}>
-                    {opt==="Lucro Real"?"LR 9,3%":"LP 9,25%"}
-                  </button>
-                ))}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:10}}>
+            <span style={{fontFamily:F.sans,fontSize:9,fontWeight:600,color:C.text3,textTransform:"uppercase",letterSpacing:0.6}}>Créditos</span>
+            <span style={{fontFamily:F.mono,fontSize:9,color:C.text3}}>base: {BRL_(baseTerN)}</span>
+          </div>
+
+          <div style={{marginBottom:6,padding:"10px 12px",background:C.bg2,border:"1px solid "+C.border,borderLeft:"3px solid "+C.amber,borderRadius:3}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+              <span style={{fontFamily:F.sans,fontSize:11,color:C.text,fontWeight:600}}>PF · Autônomo <span style={{color:C.amber}}>{mixAutonomo}%</span></span>
+              <span style={{fontFamily:F.mono,fontSize:15,color:C.green,fontWeight:700}}>{BRL_(pisCrPF_)}</span>
+            </div>
+            <div style={{fontFamily:F.mono,fontSize:9,color:C.text3}}>{BRL_(bPF_)} × 75% × {aliqPIS}%</div>
+          </div>
+
+          <div style={{marginBottom:6,padding:"10px 12px",background:C.bg2,border:"1px solid "+C.border,borderLeft:"3px solid "+C.blue,borderRadius:3}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+              <span style={{fontFamily:F.sans,fontSize:11,color:C.text,fontWeight:600}}>PJSN · Simples Nacional <span style={{color:C.blue}}>{mixSN}%</span></span>
+              <span style={{fontFamily:F.mono,fontSize:15,color:C.green,fontWeight:700}}>{BRL_(pisCrSN_)}</span>
+            </div>
+            <div style={{fontFamily:F.mono,fontSize:9,color:C.text3}}>{BRL_(bSN_)} × 75% × {aliqPIS}%</div>
+          </div>
+
+          <div style={{marginBottom:10,padding:"10px 12px",background:C.bg2,border:"1px solid "+C.border,borderLeft:"3px solid "+C.green,borderRadius:3}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+              <span style={{fontFamily:F.sans,fontSize:11,color:C.text,fontWeight:600}}>PJN · LP / LR <span style={{color:C.green}}>{mixLucro}%</span></span>
+              <span style={{fontFamily:F.mono,fontSize:15,color:C.green,fontWeight:700}}>{BRL_(pisCrPJN_)}</span>
+            </div>
+            <div style={{fontFamily:F.mono,fontSize:9,color:C.text3}}>{BRL_(bPJN_)} × 100% × {aliqPIS}%</div>
+          </div>
+
+          <div style={{marginBottom:20,padding:"10px 14px",background:C.greenLt,border:"1px solid "+C.green+"44",borderRadius:3,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontFamily:F.sans,fontSize:11,color:C.green,fontWeight:600}}>Total créditos</span>
+            <span style={{fontFamily:F.mono,fontSize:18,color:C.green,fontWeight:700}}>{BRL_(pisCrTot_)}</span>
+          </div>
+
+          <div style={{padding:"16px",background:pisCusto_<=0?C.greenLt:C.redLt,border:"2px solid "+(pisCusto_<=0?C.green:C.red),borderRadius:4}}>
+            <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:10}}>
+              <div style={{display:"flex",justifyContent:"space-between"}}>
+                <span style={{fontFamily:F.sans,fontSize:10,color:C.text2}}>Crédito</span>
+                <span style={{fontFamily:F.mono,fontSize:11,color:C.green}}>{"+ "+BRL_(pisCrTot_)}</span>
               </div>
-              <NInput label={"Lucro Presumido / Real"} hint={"CBS "+(regimeLucroTerceiros==="Lucro Real"?"9,3%":"9,25%")} raw={rL} setRaw={setRL} onBlur={cL} suffix="%"/>
+              <div style={{display:"flex",justifyContent:"space-between"}}>
+                <span style={{fontFamily:F.sans,fontSize:10,color:C.text2}}>Débito</span>
+                <span style={{fontFamily:F.mono,fontSize:11,color:C.red}}>{"- "+BRL_(pisDeb_)}</span>
+              </div>
+            </div>
+            <div style={{borderTop:"1px solid "+(pisCusto_<=0?C.green+"44":C.red+"44"),paddingTop:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontFamily:F.sans,fontSize:13,color:pisCusto_<=0?C.green:C.red,fontWeight:700,textTransform:"uppercase",letterSpacing:0.5}}>
+                {"→ "+(pisCusto_<=0?"CREDOR":"DEVEDOR")}
+              </span>
+              <span style={{fontFamily:F.mono,fontSize:24,color:pisCusto_<=0?C.green:C.red,fontWeight:800}}>
+                {BRL_(Math.abs(pisCusto_))}
+              </span>
             </div>
           </div>
-          <div style={{marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 8px",background:mixTot===100?C.greenLt:C.redLt,border:"1px solid "+(mixTot===100?C.green+"33":C.red+"33"),borderRadius:2}}>
-            <span style={{fontFamily:F.sans,fontSize:9,color:C.text3}}>Total mix:</span>
-            <span style={{fontFamily:F.mono,fontSize:10,color:mixColor,fontWeight:600}}>{mixTot}% {mixTot===100?"✓":"(revisar)"}</span>
-          </div>
-
-          <D my={8}/>
-
-          {/* Ano simulado */}
-          <SL>Ano simulado</SL>
-          <div style={{display:"flex",flexWrap:"wrap",gap:3,marginBottom:4}}>
-            {MILES.map(mi=>(
-              <button key={mi.ano} onClick={()=>setAno(mi.ano)}
-                style={{border:"1px solid "+(ano===mi.ano?mi.cor:C.border),background:ano===mi.ano?mi.cor+"18":C.bg2,color:ano===mi.ano?mi.cor:C.text2,borderRadius:2,padding:"4px 8px",cursor:"pointer",fontFamily:F.mono,fontSize:10,transition:"all 0.12s"}}>
-                {mi.ano}
-              </button>
-            ))}
-          </div>
-          <div style={{fontFamily:F.sans,fontSize:9,color:m.cor,marginBottom:8}}>{m.label} — {m.total}% nominal</div>
-
 
         </div>
 
-        {/* Coluna direita — Tabela de cálculo */}
-        <div style={{overflowY:isMob?"visible":"auto",height:isMob?"auto":"100%",padding:"16px 20px"}}>
+        {/* ════ DIREITA: CBS + IBS ════ */}
+        <div style={{padding:"24px",overflowY:isMob?"visible":"auto",background:C.bg1}}>
 
-          {/* ═══ TABELA DE CÁLCULO ═══ */}
+          <div style={{marginBottom:20,paddingBottom:12,borderBottom:"2px solid "+m.cor}}>
+            <div style={{fontFamily:F.sans,fontSize:18,fontWeight:800,color:m.cor,letterSpacing:-0.5}}>
+              {"CBS "+m.cbs+"%"+(m.ibs>0?" + IBS "+m.ibs+"%":"")}
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4}}>
+              <span style={{fontFamily:F.mono,fontSize:13,color:C.text2,fontWeight:600}}>Total: {m.total}%</span>
+              <Bdg color={m.cor}>{m.ano+" — "+m.label}</Bdg>
+            </div>
+          </div>
+
+          <div style={{marginBottom:4,fontFamily:F.sans,fontSize:9,fontWeight:600,color:C.text3,textTransform:"uppercase",letterSpacing:0.6}}>Débito</div>
+          {[
+            {label:"Faturamento bruto", val:BRL_(frete), dim:true},
+            ...(pctExportacao>0?[{label:"(-) Exportação imune "+pctExportacao+"%", val:"("+BRL_(frete*pctExportacao/100)+")", color:C.green}]:[]),
+            {label:"Base tributável", val:BRL_(baseExec), bold:true},
+            {label:"× CBS "+m.cbs+"%", val:BRL_(cbsDeb_), red:true},
+            ...(m.ibs>0?[{label:"× IBS "+m.ibs+"%", val:BRL_(ibsDeb_), red:true}]:[]),
+          ].map((row,i)=>(
+            <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid "+C.border+"55"}}>
+              <span style={{fontFamily:F.sans,fontSize:10,color:row.color||(row.dim?C.text3:C.text),fontWeight:row.bold?600:400}}>{row.label}</span>
+              <span style={{fontFamily:F.mono,fontSize:10,color:row.color||(row.red?C.red:row.bold?C.text:C.text2)}}>{row.val}</span>
+            </div>
+          ))}
+          <div style={{marginTop:8,marginBottom:20,padding:"10px 14px",background:C.redLt,border:"1px solid "+C.red+"44",borderLeft:"4px solid "+C.red,borderRadius:3,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontFamily:F.sans,fontSize:11,color:C.red,fontWeight:600}}>{"DÉBITO "+(m.ibs>0?"CBS + IBS":"CBS")}</span>
+            <span style={{fontFamily:F.mono,fontSize:20,color:C.red,fontWeight:800}}>{BRL_(cbsDeb_+ibsDeb_)}</span>
+          </div>
+
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:10}}>
+            <span style={{fontFamily:F.sans,fontSize:9,fontWeight:600,color:C.text3,textTransform:"uppercase",letterSpacing:0.6}}>{"Créditos CBS"+(m.ibs>0?" + IBS":"")}</span>
+            <span style={{fontFamily:F.mono,fontSize:9,color:C.text3}}>base: {BRL_(baseTerN)}</span>
+          </div>
+
+          <div style={{marginBottom:6,padding:"10px 12px",background:C.bg2,border:"1px solid "+C.border,borderLeft:"3px solid "+C.amber,borderRadius:3}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+              <span style={{fontFamily:F.sans,fontSize:11,color:C.text,fontWeight:600}}>PF · Autônomo <span style={{color:C.amber}}>{mixAutonomo}%</span></span>
+              <span style={{fontFamily:F.mono,fontSize:15,color:C.green,fontWeight:700}}>{BRL_(cbsCrPF_)}</span>
+            </div>
+            <div style={{fontFamily:F.mono,fontSize:9,color:C.text3}}>{BRL_(bPF_)} × {CBS_CRED.autonomo}%</div>
+          </div>
+
+          <div style={{marginBottom:6,padding:"10px 12px",background:C.bg2,border:"1px solid "+C.border,borderLeft:"3px solid "+C.blue,borderRadius:3}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+              <span style={{fontFamily:F.sans,fontSize:11,color:C.text,fontWeight:600}}>PJSN · Simples Nacional <span style={{color:C.blue}}>{mixSN}%</span></span>
+              <span style={{fontFamily:F.mono,fontSize:15,color:C.green,fontWeight:700}}>{BRL_(cbsCrSN_)}</span>
+            </div>
+            <div style={{fontFamily:F.mono,fontSize:9,color:C.text3}}>{BRL_(bSN_)} × {CBS_CRED.simplesNacional}%</div>
+          </div>
+
+          <div style={{marginBottom:6,padding:"10px 12px",background:C.bg2,border:"1px solid "+C.border,borderLeft:"3px solid "+C.green,borderRadius:3}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+              <span style={{fontFamily:F.sans,fontSize:11,color:C.text,fontWeight:600}}>PJN · {regimeLucroTerceiros==="Lucro Real"?"Lucro Real":"Lucro Presumido"} <span style={{color:C.green}}>{mixLucro}%</span></span>
+              <span style={{fontFamily:F.mono,fontSize:15,color:C.green,fontWeight:700}}>{BRL_(cbsCrPJN_)}</span>
+            </div>
+            <div style={{fontFamily:F.mono,fontSize:9,color:C.text3}}>{BRL_(bPJN_)} × {lucroRateTerceiros}%</div>
+          </div>
+
+          {m.ibs>0 && (
+            <div style={{marginBottom:6,padding:"8px 12px",background:C.bg2,border:"1px solid "+C.border,borderLeft:"3px solid "+C.purple,borderRadius:3,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontFamily:F.sans,fontSize:10,color:C.text2}}>Créditos IBS {m.ibs}% — proporcional ao CBS</span>
+              <span style={{fontFamily:F.mono,fontSize:13,color:C.purple,fontWeight:600}}>{BRL_(ibsCrTot_)}</span>
+            </div>
+          )}
+
+          <div style={{marginBottom:20,padding:"10px 14px",background:C.greenLt,border:"1px solid "+C.green+"44",borderRadius:3,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontFamily:F.sans,fontSize:11,color:C.green,fontWeight:600}}>Total créditos</span>
+            <span style={{fontFamily:F.mono,fontSize:18,color:C.green,fontWeight:700}}>{BRL_(cbsCrTot_+ibsCrTot_)}</span>
+          </div>
+
+          <div style={{padding:"16px",background:cbsCusto_<=0?C.greenLt:C.redLt,border:"2px solid "+(cbsCusto_<=0?C.green:C.red),borderRadius:4,marginBottom:16}}>
+            <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:10}}>
+              <div style={{display:"flex",justifyContent:"space-between"}}>
+                <span style={{fontFamily:F.sans,fontSize:10,color:C.text2}}>Créditos</span>
+                <span style={{fontFamily:F.mono,fontSize:11,color:C.green}}>{"+ "+BRL_(cbsCrTot_+ibsCrTot_)}</span>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between"}}>
+                <span style={{fontFamily:F.sans,fontSize:10,color:C.text2}}>Débito</span>
+                <span style={{fontFamily:F.mono,fontSize:11,color:C.red}}>{"- "+BRL_(cbsDeb_+ibsDeb_)}</span>
+              </div>
+            </div>
+            <div style={{borderTop:"1px solid "+(cbsCusto_<=0?C.green+"44":C.red+"44"),paddingTop:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontFamily:F.sans,fontSize:13,color:cbsCusto_<=0?C.green:C.red,fontWeight:700,textTransform:"uppercase",letterSpacing:0.5}}>
+                {"→ "+(cbsCusto_<=0?"CREDOR":"CBS A PAGAR")}
+              </span>
+              <span style={{fontFamily:F.mono,fontSize:24,color:cbsCusto_<=0?C.green:C.red,fontWeight:800}}>
+                {BRL_(Math.abs(cbsCusto_))}
+              </span>
+            </div>
+          </div>
+
           {(()=>{
-            const baseTrib    = frete*(1-pctExportacao/100);
-            const baseExp     = frete*pctExportacao/100;
-            const baseTer     = frete*(1-(margemTerceiros||0)/100);
-            const tot         = mixAutonomo+mixSN+mixLucro||1;
-            const baseAuto    = baseTer*(mixAutonomo/tot);
-            const baseSN_mix  = baseTer*(mixSN/tot);
-            const baseLPLR    = baseTer*(mixLucro/tot);
-            const aliqHoje    = regime==="Lucro Real"?0.0925:0.0365;
-            const lblHoje     = regime==="Lucro Real"?"9,25%":"3,65%";
-            // Créditos HOJE (PIS/COFINS): só LR gera crédito de LR sobre terceiros LR
-            const credHojeAuto  = 0;
-            const credHojeSN    = 0;
-            const credHojeLPLR  = regime==="Lucro Real"?(baseLPLR*(lucroRateTerceiros/100)):0;
-            const totalCredHoje = credHojeAuto+credHojeSN+credHojeLPLR;
-            const debitoHojeCalc= baseTrib*aliqHoje;
-            const custoHojeCalc = Math.max(0,debitoHojeCalc-totalCredHoje);
-            // Créditos REFORMA (CBS) por regime
-            const credCBSAuto   = baseAuto*CBS_CRED.autonomo/100;
-            const credCBSSN     = baseSN_mix*CBS_CRED.simplesNacional/100;
-            const credCBSLPLR   = baseLPLR*(lucroRateTerceiros/100);
-            const totalCredCBS  = credCBSAuto+credCBSSN+credCBSLPLR;
-            const credIBSTot    = reforma.creditoIBS_terceiros;
-            const totalCredReforma = totalCredCBS+credIBSTot;
-            const debitoReforma = reforma.cbsDebito+reforma.ibsDebito;
-            const custoReforma  = reforma.totalRecolher;
-            const diferenca     = custoReforma-custoHojeCalc;
-            const corDif        = diferenca>0?C.red:C.green;
-            const dif33         = liq2033-custoHojeCalc;
-            const corDif33      = dif33>0?C.red:C.green;
-
-            const R=(v)=>"R$ "+(v||0).toLocaleString("pt-BR",{maximumFractionDigits:0});
-            const pct=(v)=>(v||0).toFixed(2)+"%";
-
-            // Row style helpers
-            const rowBase = {display:"grid",gridTemplateColumns:"1fr 1fr 1fr",borderBottom:"1px solid "+C.border,alignItems:"center"};
-            const cell = (content,opts={})=>(
-              <div style={{padding:"7px 10px",fontFamily:opts.mono?F.mono:F.sans,fontSize:opts.big?13:opts.sm?9:11,color:opts.color||C.text,fontWeight:opts.bold?700:opts.med?500:400,textAlign:opts.right?"right":"left",background:opts.bg||"transparent",...(opts.style||{})}}>
-                {content}
-              </div>
-            );
-            const section=(label)=>(
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",background:C.bg2,borderBottom:"1px solid "+C.border,borderTop:"2px solid "+C.border}}>
-                {cell(label,{bold:true,sm:false,color:C.text2})}
-                {cell("")}{cell("")}
-              </div>
-            );
-
+            const diff=cbsCusto_-pisCusto_;
+            const corD=diff>0?C.red:C.green;
             return(
-              <div style={{border:"1px solid "+C.border,borderRadius:4,overflow:"hidden",fontFamily:F.sans}}>
-
-                {/* Cabeçalho */}
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",background:C.brand,borderBottom:"2px solid "+C.brand}}>
-                  {cell("",{color:"#fff",bold:true})}
-                  {cell("Hoje — PIS/COFINS "+lblHoje,{color:"#fff",bold:true,sm:true})}
-                  {cell("Reforma "+ano+" — CBS+IBS "+m.total+"%",{color:"#fff",bold:true,sm:true})}
-                </div>
-
-                {/* Faturamento */}
-                <div style={rowBase}>
-                  {cell("Faturamento bruto",{color:C.text2})}
-                  {cell(R(frete),{mono:true,right:true,color:C.text})}
-                  {cell(R(frete),{mono:true,right:true,color:C.text})}
-                </div>
-
-                {/* Exportação */}
-                {pctExportacao>0 && (
-                  <div style={rowBase}>
-                    {cell("(-) Exportação imune "+pctExportacao+"%",{color:C.text2})}
-                    {cell("("+R(baseExp)+")",{mono:true,right:true,color:C.green})}
-                    {cell("("+R(baseExp)+")",{mono:true,right:true,color:C.green})}
+              <div style={{padding:"14px 16px",background:C.bg2,border:"1px solid "+C.border,borderRadius:3}}>
+                <div style={{fontFamily:F.sans,fontSize:9,color:C.text3,textTransform:"uppercase",letterSpacing:0.6,marginBottom:10}}>Comparativo — Hoje vs Reforma</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+                  <div style={{padding:"8px 10px",background:C.bg1,border:"1px solid "+C.border,borderRadius:2}}>
+                    <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginBottom:3}}>Hoje — PIS/COFINS {aliqPIS}%</div>
+                    <div style={{fontFamily:F.mono,fontSize:14,color:pisCusto_<=0?C.green:C.red,fontWeight:700}}>{BRL_(Math.abs(pisCusto_))}</div>
+                    <div style={{fontFamily:F.sans,fontSize:8,color:pisCusto_<=0?C.green:C.red,marginTop:2}}>{pisCusto_<=0?"credor":"devedor"}</div>
                   </div>
-                )}
-
-                {/* Base tributável */}
-                <div style={{...rowBase,background:C.bg2}}>
-                  {cell("Base tributável",{bold:true,color:C.text})}
-                  {cell(R(baseTrib),{mono:true,right:true,bold:true,color:C.text})}
-                  {cell(R(baseTrib),{mono:true,right:true,bold:true,color:C.text})}
-                </div>
-
-                {/* Alíquota débito */}
-                <div style={rowBase}>
-                  {cell("Alíquota débito",{color:C.text2})}
-                  {cell(lblHoje,{mono:true,right:true,color:C.text3})}
-                  {cell(m.total+"%",{mono:true,right:true,color:C.text3})}
-                </div>
-
-                {/* Débito */}
-                <div style={{...rowBase,background:C.redLt}}>
-                  {cell("Débito",{med:true,color:C.red})}
-                  {cell(R(debitoHojeCalc),{mono:true,right:true,color:C.red,bold:true})}
-                  {cell(R(debitoReforma),{mono:true,right:true,color:C.red,bold:true})}
-                </div>
-
-                {/* Seção créditos */}
-                {section("Créditos por regime dos terceiros")}
-
-                {/* Autônomo */}
-                <div style={rowBase}>
-                  {cell("Autônomo — "+mixAutonomo+"% do mix (CBS 1,86%)",{sm:true,color:C.text3})}
-                  {cell("—",{mono:true,right:true,color:C.text3})}
-                  {cell(R(credCBSAuto),{mono:true,right:true,color:C.green})}
-                </div>
-
-                {/* SN */}
-                <div style={rowBase}>
-                  {cell("Simples Nacional — "+mixSN+"% do mix (CBS 2,50%)",{sm:true,color:C.text3})}
-                  {cell("—",{mono:true,right:true,color:C.text3})}
-                  {cell(R(credCBSSN),{mono:true,right:true,color:C.green})}
-                </div>
-
-                {/* LP/LR */}
-                <div style={rowBase}>
-                  {cell((regimeLucroTerceiros==="Lucro Real"?"Lucro Real":"Lucro Presumido")+" — "+mixLucro+"% do mix (CBS "+(regimeLucroTerceiros==="Lucro Real"?"9,3%":"9,25%")+")",{sm:true,color:C.text3})}
-                  {cell(credHojeLPLR>0?R(credHojeLPLR):"—",{mono:true,right:true,color:credHojeLPLR>0?C.green:C.text3})}
-                  {cell(R(credCBSLPLR),{mono:true,right:true,color:C.green})}
-                </div>
-
-                {/* IBS crédito */}
-                {m.ibs>0 && (
-                  <div style={rowBase}>
-                    {cell("Crédito IBS ("+m.ibs+"%) — base terceiros",{sm:true,color:C.text3})}
-                    {cell("—",{mono:true,right:true,color:C.text3})}
-                    {cell(R(credIBSTot),{mono:true,right:true,color:C.purple})}
-                  </div>
-                )}
-
-                {/* Total créditos */}
-                <div style={{...rowBase,background:C.greenLt}}>
-                  {cell("Total créditos",{med:true,color:C.green})}
-                  {cell(totalCredHoje>0?R(totalCredHoje):"—",{mono:true,right:true,color:C.green,bold:true})}
-                  {cell(R(totalCredReforma),{mono:true,right:true,color:C.green,bold:true})}
-                </div>
-
-                {/* Custo líquido */}
-                <div style={{...rowBase,background:C.bg2,borderTop:"2px solid "+C.border}}>
-                  {cell("Custo líquido (débito − créditos)",{bold:true,color:C.text})}
-                  {cell(R(custoHojeCalc),{mono:true,right:true,bold:true,big:true,color:C.text})}
-                  {cell(R(custoReforma),{mono:true,right:true,bold:true,big:true,color:colAno})}
-                </div>
-
-                {/* Diferença — destaque */}
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",background:corDif+"18",borderTop:"2px solid "+corDif}}>
-                  {cell(diferenca>0?"▲ Custo adicional reforma":"▼ Economia com a reforma",{bold:true,color:corDif})}
-                  {cell("referência",{mono:true,right:true,color:C.text3,sm:true})}
-                  <div style={{padding:"10px",textAlign:"right"}}>
-                    <div style={{fontFamily:F.mono,fontSize:18,color:corDif,fontWeight:800}}>{diferenca>0?"+":""}{R(diferenca)}</div>
-                    <div style={{fontFamily:F.mono,fontSize:11,color:corDif,fontWeight:600}}>{(diferenca/Math.max(custoHojeCalc,1)*100).toFixed(1)}% sobre hoje</div>
+                  <div style={{padding:"8px 10px",background:C.bg1,border:"1px solid "+m.cor+"44",borderRadius:2}}>
+                    <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginBottom:3}}>{"Reforma "+m.ano+" — CBS "+(m.ibs>0?"+ IBS":"")}</div>
+                    <div style={{fontFamily:F.mono,fontSize:14,color:cbsCusto_<=0?C.green:C.red,fontWeight:700}}>{BRL_(Math.abs(cbsCusto_))}</div>
+                    <div style={{fontFamily:F.sans,fontSize:8,color:cbsCusto_<=0?C.green:C.red,marginTop:2}}>{cbsCusto_<=0?"credor":"a pagar"}</div>
                   </div>
                 </div>
-
-                {/* 2033 */}
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",borderTop:"1px solid "+C.border,background:C.bg2}}>
-                  {cell("2033 — IVA Dual pleno (28%)",{color:C.text2})}
-                  {cell("referência",{mono:true,right:true,color:C.text3,sm:true})}
-                  <div style={{padding:"7px 10px",textAlign:"right"}}>
-                    <div style={{fontFamily:F.mono,fontSize:13,color:corDif33,fontWeight:700}}>{R(liq2033)}</div>
-                    <div style={{fontFamily:F.mono,fontSize:10,color:corDif33}}>{dif33>0?"+":""}{R(dif33)} ({(dif33/Math.max(custoHojeCalc,1)*100).toFixed(1)}%)</div>
-                  </div>
+                <div style={{padding:"10px 14px",background:corD+"18",border:"1px solid "+corD+"44",borderRadius:3,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <span style={{fontFamily:F.sans,fontSize:11,color:corD,fontWeight:600}}>{diff>0?"▲ Custo adicional":"▼ Economia"} vs hoje</span>
+                  <span style={{fontFamily:F.mono,fontSize:16,color:corD,fontWeight:800}}>{(diff>0?"+":"")+BRL_(diff)}</span>
                 </div>
-
               </div>
             );
           })()}
 
-          {/* ═══ DESPESAS SEM DIREITO A CRÉDITO CBS/IBS ═══ */}
-          <div style={{background:C.bg1,padding:"14px 16px",borderTop:"1px solid "+C.border}}>
-            <div onClick={()=>togCol("despSC")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",padding:"10px 12px",marginBottom:4,userSelect:"none",background:C.bg2,border:"1px solid "+C.border,borderRadius:3,minHeight:44,WebkitTapHighlightColor:"transparent",touchAction:"manipulation"}}>
-              <span style={{fontFamily:F.sans,fontSize:10,color:C.text2,fontWeight:600,textTransform:"uppercase",letterSpacing:0.6}}>Despesas sem crédito CBS/IBS</span>
-              <span style={{fontFamily:F.mono,fontSize:11,color:C.text,background:C.bg3,borderRadius:3,padding:"3px 10px",minWidth:32,textAlign:"center",border:"1px solid "+C.border}}>{collapsed["despSC"]?"▶ abrir":"▼ recolher"}</span>
-            </div>
-            <div style={{display:collapsed["despSC"]?"none":undefined}}>
-            <div style={{marginBottom:8,fontFamily:F.sans,fontSize:9,color:C.text2}}>
-              Custos que não geram crédito de CBS ou IBS, independente do regime — registre abaixo como % do faturamento mensal (R$ {frete.toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês).
-            </div>
-            <div style={{display:"flex",flexDirection:"column",gap:4}}>
-              {DESPESAS_SEM_CREDITO.map(desp=>(
-                <DespesaSCCheck
-                  key={desp.id}
-                  desp={desp}
-                  ativo={despesasSCAtivas[desp.id]||false}
-                  pct={despesasSCCusto[desp.id]||0}
-                  frete={frete}
-                  onToggle={()=>toggleDespesaSC(desp.id)}
-                  onPctChange={(v)=>setDespesaSCCusto(desp.id,v)}
-                />
-              ))}
-            </div>
-            {(()=>{
-              const ativas = DESPESAS_SEM_CREDITO.filter(d=>despesasSCAtivas[d.id]);
-              if (!ativas.length) return null;
-              const totalSC = ativas.reduce((s,d)=>s+(frete*(despesasSCCusto[d.id]||0)/100),0);
-              const totalPct = ativas.reduce((s,d)=>s+(despesasSCCusto[d.id]||0),0);
-              return (
-                <div style={{marginTop:12}}>
-                  <SL right={<Bdg color={C.red}>SEM CRÉDITO</Bdg>}>Despesas sem crédito apuradas</SL>
-                  <table style={{width:"100%",borderCollapse:"collapse"}}>
-                    <thead>
-                      <tr style={{borderBottom:"1px solid "+C.border}}>
-                        {["Despesa","% fat.","Custo/mês"].map(h=>(
-                          <th key={h} style={{fontFamily:F.sans,fontSize:9,color:C.text2,padding:"4px 0",textAlign:"left",fontWeight:400}}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {ativas.map((d,i)=>(
-                        <tr key={i} style={{borderBottom:"1px solid "+C.border}}>
-                          <td style={{fontFamily:F.sans,fontSize:10,color:C.text2,padding:"5px 0"}}>{d.nome}</td>
-                          <td style={{fontFamily:F.mono,fontSize:10,color:C.text3}}>{(despesasSCCusto[d.id]||0).toFixed(1)}%</td>
-                          <td style={{fontFamily:F.mono,fontSize:10,color:C.red}}>R$ {(frete*(despesasSCCusto[d.id]||0)/100).toLocaleString("pt-BR",{maximumFractionDigits:0})}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <div style={{marginTop:6,padding:"6px 10px",background:C.redLt,border:"1px solid "+C.red+"33",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <span style={{fontFamily:F.sans,fontSize:10,color:C.red,fontWeight:500}}>Total despesas sem crédito</span>
-                    <div style={{textAlign:"right"}}>
-                      <div style={{fontFamily:F.mono,fontSize:11,color:C.red,fontWeight:600}}>R$ {totalSC.toLocaleString("pt-BR",{maximumFractionDigits:0})}</div>
-                      <div style={{fontFamily:F.mono,fontSize:8,color:C.text3}}>{totalPct.toFixed(1)}% do faturamento</div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-            </div>
-          </div>
-
-          {/* ═══ RESULTADO & IMPACTO ═══ */}
-          <div style={{background:C.bg1,borderTop:"1px solid "+C.border}}>
-
-            <div style={{padding:"14px 16px",borderBottom:"1px solid "+C.border}}>
-              <SL right={<Bdg color={C.brand}>CBS + IBS · {ano}</Bdg>}>Resultado da simulação</SL>
-
-            {/* Apuração CBS + IBS */}
-            <div style={{border:"1px solid "+C.border,borderTop:"3px solid "+C.brand,padding:"12px",marginBottom:10}}>
-              <div onClick={()=>togCol("apuracao")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",padding:"8px 10px",marginBottom:8,userSelect:"none",background:C.bg2,border:"1px solid "+C.border,borderRadius:3,minHeight:44,WebkitTapHighlightColor:"transparent",touchAction:"manipulation",margin:"-12px -12px 10px -12px",borderTop:"none",borderLeft:"none",borderRight:"none"}}>
-                <span style={{fontFamily:F.sans,fontSize:10,color:C.brand,fontWeight:600,textTransform:"uppercase",letterSpacing:0.6}}>Apuração CBS + IBS — {ano}</span>
-                <span style={{fontFamily:F.mono,fontSize:11,color:C.text,background:C.bg3,borderRadius:3,padding:"3px 10px",minWidth:32,textAlign:"center",border:"1px solid "+C.border}}>{collapsed["apuracao"]?"▶ abrir":"▼ recolher"}</span>
-              </div>
-              <div style={{display:collapsed["apuracao"]?"none":undefined}}>
-
-              {/* CBS */}
-              <div style={{marginBottom:8}}>
-                <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,marginBottom:4,fontWeight:500}}>CBS (Federal) — {m.cbs}%</div>
-                {[
-                  {l:"Débito CBS",v:reforma.cbsDebito,c:C.red},
-                  ...(usaFrota?[{l:"(-) Crédito CBS frota",v:reforma.creditoCBS_frota,c:C.green}]:[]),
-                  ...(usaTerceiros?[{l:"(-) Crédito CBS terceiros",v:reforma.creditoCBS_terceiros,c:C.green}]:[]),
-                  ...(usaAgregados?[{l:"(-) Crédito CBS agregados",v:reforma.creditoCBS_agregados,c:C.green}]:[]),
-                ].map((r,i)=>(
-                  <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"3px 0"}}>
-                    <span style={{fontFamily:F.sans,fontSize:10,color:C.text2}}>{r.l}</span>
-                    <span style={{fontFamily:F.mono,fontSize:10,color:r.c}}>R$ {r.v.toLocaleString("pt-BR",{maximumFractionDigits:0})}</span>
-                  </div>
-                ))}
-                <div style={{height:1,background:C.border,margin:"4px 0"}}/>
-                <div style={{display:"flex",justifyContent:"space-between",padding:"3px 0"}}>
-                  <span style={{fontFamily:F.sans,fontSize:10,color:C.text,fontWeight:500}}>= CBS a recolher</span>
-                  <span style={{fontFamily:F.mono,fontSize:11,color:C.blue,fontWeight:600}}>R$ {reforma.cbsRecolher.toLocaleString("pt-BR",{maximumFractionDigits:0})}</span>
-                </div>
-              </div>
-
-              {/* IBS */}
-              {m.ibs > 0 && (
-                <div style={{marginBottom:8}}>
-                  <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,marginBottom:4,fontWeight:500}}>IBS (Est./Mun.) — {m.ibs}%</div>
-                  {[
-                    {l:"Débito IBS",v:reforma.ibsDebito,c:C.red},
-                    ...(usaFrota?[{l:"(-) Crédito IBS frota",v:reforma.creditoIBS_frota,c:C.green}]:[]),
-                    ...(usaTerceiros?[{l:"(-) Crédito IBS terceiros",v:reforma.creditoIBS_terceiros,c:C.green}]:[]),
-                    ...(usaAgregados?[{l:"(-) Crédito IBS agregados",v:reforma.creditoIBS_agregados,c:C.green}]:[]),
-                  ].map((r,i)=>(
-                    <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"3px 0"}}>
-                      <span style={{fontFamily:F.sans,fontSize:10,color:C.text2}}>{r.l}</span>
-                      <span style={{fontFamily:F.mono,fontSize:10,color:r.c}}>R$ {r.v.toLocaleString("pt-BR",{maximumFractionDigits:0})}</span>
-                    </div>
-                  ))}
-                  <div style={{height:1,background:C.border,margin:"4px 0"}}/>
-                  <div style={{display:"flex",justifyContent:"space-between",padding:"3px 0"}}>
-                    <span style={{fontFamily:F.sans,fontSize:10,color:C.text,fontWeight:500}}>= IBS a recolher</span>
-                    <span style={{fontFamily:F.mono,fontSize:11,color:C.purple,fontWeight:600}}>R$ {reforma.ibsRecolher.toLocaleString("pt-BR",{maximumFractionDigits:0})}</span>
-                  </div>
-                </div>
-              )}
-
-              {regime === "Simples Nacional" && (
-                <div style={{padding:"4px 8px",background:C.redLt,border:"1px solid "+C.red+"33",borderRadius:2,fontFamily:F.sans,fontSize:9,color:C.red,marginBottom:6}}>
-                  SN: sem direito a créditos CBS/IBS — débito integral
-                </div>
-              )}
-              </div>
-
-              <div style={{height:1,background:C.brand+"44",margin:"6px 0"}}/>
-              {reforma.totalSaldoCredor>0 ? (
-                <div style={{display:"flex",justifyContent:"space-between",padding:"6px 8px",background:C.greenLt,border:"1px solid "+C.green+"44",borderRadius:2,marginBottom:4}}>
-                  <span style={{fontFamily:F.sans,fontSize:11,color:C.green,fontWeight:700}}>✓ SALDO CREDOR</span>
-                  <span style={{fontFamily:F.mono,fontSize:16,color:C.green,fontWeight:700}}>R$ {reforma.totalSaldoCredor.toLocaleString("pt-BR",{maximumFractionDigits:0})}</span>
-                </div>
-              ) : (
-                <div style={{display:"flex",justifyContent:"space-between",padding:"6px 8px",background:C.redLt,border:"1px solid "+C.red+"44",borderRadius:2,marginBottom:4}}>
-                  <span style={{fontFamily:F.sans,fontSize:11,color:C.red,fontWeight:700}}>⚠ TOTAL A RECOLHER</span>
-                  <span style={{fontFamily:F.mono,fontSize:16,color:C.red,fontWeight:700}}>R$ {reforma.totalRecolher.toLocaleString("pt-BR",{maximumFractionDigits:0})}</span>
-                </div>
-              )}
-              <div style={{fontFamily:F.mono,fontSize:9,color:C.text3,textAlign:"right"}}>{pctCarga.toFixed(2)}% do faturamento</div>
-
-              {/* Tabela PIS/COFINS Hoje — só para Lucro Real */}
-              {regime==="Lucro Real" && (
-                <div style={{marginTop:10,padding:"10px 12px",background:C.bg2,border:"1px solid "+C.border,borderLeft:"3px solid "+C.teal,borderRadius:2}}>
-                  <div style={{fontFamily:F.sans,fontSize:9,color:C.teal,fontWeight:600,textTransform:"uppercase",letterSpacing:0.6,marginBottom:6}}>PIS/COFINS Hoje — Lucro Real (não-cumulativo)</div>
-                  {[
-                    {l:"Débito PIS/COFINS (9,25%)",  v:debitoHojeBruto, c:C.red},
-                    ...(creditoHojeLR>0?[{l:"(-) Crédito PIS/COFINS frota+terceiros",v:creditoHojeLR,c:C.green}]:[]),
-                  ].map((r,i)=>(
-                    <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"3px 0"}}>
-                      <span style={{fontFamily:F.sans,fontSize:10,color:C.text2}}>{r.l}</span>
-                      <span style={{fontFamily:F.mono,fontSize:10,color:r.c}}>R$ {r.v.toLocaleString("pt-BR",{maximumFractionDigits:0})}</span>
-                    </div>
-                  ))}
-                  <div style={{height:1,background:C.border,margin:"4px 0"}}/>
-                  <div style={{display:"flex",justifyContent:"space-between",padding:"3px 0"}}>
-                    <span style={{fontFamily:F.sans,fontSize:10,color:C.text,fontWeight:500}}>= PIS/COFINS a recolher hoje</span>
-                    <span style={{fontFamily:F.mono,fontSize:11,color:C.teal,fontWeight:600}}>R$ {hoje.toLocaleString("pt-BR",{maximumFractionDigits:0})}</span>
-                  </div>
-                  <div style={{fontFamily:F.mono,fontSize:8,color:C.text3,textAlign:"right",marginTop:2}}>{pctHojeEfetivo.toFixed(2)}% efetivo sobre o faturamento</div>
-                </div>
-              )}
-
-                {/* ── Impacto da Reforma Tributária ── */}
-                <div style={{height:1,background:C.border,margin:"10px 0 8px"}}/>
-                <div style={{fontFamily:F.sans,fontSize:9,color:C.text3,letterSpacing:0.6,textTransform:"uppercase",marginBottom:6}}>Impacto da Reforma Tributária</div>
-                {[
-                  {rotulo:"Hoje",      desc:descHoje, val:hoje,    variacao:null, cor:C.text3, ativo:false},
-                  {rotulo:String(ano), desc:m.label,            val:liqAno,  variacao:vAno, cor:colAno,  ativo:true },
-                  {rotulo:"2033",      desc:"IVA Dual pleno",   val:liq2033, variacao:v33,  cor:col33,   ativo:false},
-                ].map((row,i)=>(
-                  <div key={i} style={{
-                    display:"flex",justifyContent:"space-between",alignItems:"center",
-                    padding:"6px 8px",marginBottom:3,borderRadius:2,
-                    background:row.ativo?row.cor+"11":C.bg2,
-                    border:"1px solid "+(row.ativo?row.cor+"44":C.border),
-                    borderLeft:"3px solid "+(row.ativo?row.cor:C.text3+"44"),
-                  }}>
-                    <div>
-                      <span style={{fontFamily:F.mono,fontSize:10,color:row.ativo?row.cor:C.text2,marginRight:8}}>{row.rotulo}</span>
-                      <span style={{fontFamily:F.sans,fontSize:9,color:C.text3}}>{row.desc}</span>
-                    </div>
-                    <div style={{display:"flex",alignItems:"center",gap:12}}>
-                      <span style={{fontFamily:F.mono,fontSize:11,color:row.ativo?row.cor:C.text}}>
-                        R$ {row.val.toLocaleString("pt-BR",{maximumFractionDigits:0})}
-                      </span>
-                      <span style={{fontFamily:F.mono,fontSize:10,color:row.cor,minWidth:54,textAlign:"right"}}>
-                        {row.variacao===null?"referência":(row.variacao>0?"▲ +":"▼ ")+Math.abs(row.variacao).toFixed(0)+"%"}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-            {/* KPIs */}
-            <div style={{display:"grid",gridTemplateColumns:isMob?"1fr":"repeat(3,1fr)",gap:8,marginBottom:12}}>
-              <div style={{background:C.bg2,border:"1px solid "+C.border,padding:"10px 12px"}}>
-                <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,marginBottom:4}}>Débito total {ano}</div>
-                <div style={{fontFamily:F.mono,fontSize:14,fontWeight:500,color:C.red,lineHeight:1}}>R$ {(reforma.cbsDebito+reforma.ibsDebito).toLocaleString("pt-BR",{maximumFractionDigits:0})}</div>
-                <div style={{fontFamily:F.sans,fontSize:9,color:C.text3,marginTop:3}}>CBS + IBS</div>
-              </div>
-              <div style={{background:C.bg2,border:"1px solid "+C.border,padding:"10px 12px"}}>
-                <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,marginBottom:4}}>Crédito total {ano}</div>
-                <div style={{fontFamily:F.mono,fontSize:14,fontWeight:500,color:C.green,lineHeight:1}}>R$ {(reforma.totalCreditoCBS+reforma.totalCreditoIBS).toLocaleString("pt-BR",{maximumFractionDigits:0})}</div>
-                <div style={{fontFamily:F.sans,fontSize:9,color:C.text3,marginTop:3}}>não-cumulatividade plena</div>
-              </div>
-              <div style={{background:C.bg2,border:"1px solid "+C.border,padding:"10px 12px"}}>
-                <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,marginBottom:4}}>Impacto anual</div>
-                <div style={{fontFamily:F.mono,fontSize:14,fontWeight:500,color:C.brand,lineHeight:1}}>R$ {(reforma.totalRecolher*12).toLocaleString("pt-BR",{maximumFractionDigits:0})}</div>
-                <div style={{fontFamily:F.sans,fontSize:9,color:C.text3,marginTop:3}}>tributo estimado/ano</div>
-              </div>
-            </div>
-
-            {/* Custo por cenário */}
-            <div style={{marginBottom:12}}>
-              <SL>Custo mensal por cenário</SL>
-              <div style={{display:"grid",gridTemplateColumns:isMob?"1fr":"repeat(3,1fr)",gap:8}}>
-                {usaFrota && (
-                  <div style={{padding:"10px 12px",background:C.blueLt,border:"1px solid "+C.blue+"33"}}>
-                    <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,marginBottom:4}}>🚛 Frota Própria</div>
-                    <div style={{fontFamily:F.mono,fontSize:13,fontWeight:500,color:C.blue}}>R$ {reforma.custoFrota.toLocaleString("pt-BR",{maximumFractionDigits:0})}</div>
-                    <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginTop:2}}>insumos selecionados</div>
-                  </div>
-                )}
-                {usaTerceiros && (
-                  <div style={{padding:"10px 12px",background:C.amberLt,border:"1px solid "+C.amber+"33"}}>
-                    <div style={{fontFamily:F.sans,fontSize:9,color:C.text2,marginBottom:4}}>👥 Terceiros</div>
-                    <div style={{fontFamily:F.mono,fontSize:13,fontWeight:500,color:C.amber}}>R$ {reforma.custoTerceiros.toLocaleString("pt-BR",{maximumFractionDigits:0})}</div>
-                    <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginTop:2}}>valor subcontratado</div>
-                  </div>
-                )}
-                {usaAgregados&&(
-                  <div style={{padding:"8px 10px",background:C.greenLt,border:"1px solid "+C.green+"33"}}>
-                    <div style={{fontFamily:F.sans,fontSize:8,color:C.text2,marginBottom:3}}>🤝 Agregados</div>
-                    <div style={{fontFamily:F.mono,fontSize:12,color:C.green}}>R$ {reforma.custoAgregados.toLocaleString("pt-BR",{maximumFractionDigits:0})}</div>
-                  </div>
-                )}
-              </div>
-            </div>
-            </div>
-
-
-            {/* Argumento comercial */}
-            <div style={{padding:"12px 16px",background:C.brandLt,borderBottom:"1px solid "+C.brand+"33"}}>
-              <div style={{fontFamily:F.sans,fontSize:9,color:C.brand,letterSpacing:0.8,marginBottom:5,textTransform:"uppercase"}}>Argumento comercial — {ano}</div>
-              <div style={{fontFamily:F.sans,fontSize:12,color:C.text,lineHeight:1.7}}>
-                {vAno<=0
-                  ?`Em ${ano}, com os créditos de CBS sobre insumos, o tributo cai de R$ ${hoje.toLocaleString("pt-BR",{maximumFractionDigits:0})} para R$ ${liqAno.toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês — uma redução de ${Math.abs(vAno).toFixed(0)}%. Quem mapear bem os créditos agora sai na frente.`
-                  :`Em ${ano} a carga tributária sobe de R$ ${hoje.toLocaleString("pt-BR",{maximumFractionDigits:0})} para R$ ${liqAno.toLocaleString("pt-BR",{maximumFractionDigits:0})}/mês — um aumento de ${vAno.toFixed(0)}%, equivalente a R$ ${((liqAno-hoje)*12).toLocaleString("pt-BR",{maximumFractionDigits:0})} por ano. Preparar-se antes de ${ano} é a diferença entre absorver o impacto ou repassá-lo.`
-                }
-              </div>
-            </div>
-
-            {/* Pontos de atenção */}
-            <div style={{padding:"12px 16px 14px"}}>
-              <SL>Pontos de atenção</SL>
-              <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                {ops.map((o,i)=>(
-                  <div key={i} style={{padding:"8px 10px",background:C.bg2,border:"1px solid "+C.border,borderLeft:"3px solid "+o.cor}}>
-                    <div style={{fontFamily:F.sans,fontSize:9,color:o.cor,marginBottom:2,textTransform:"uppercase",letterSpacing:0.5}}>{o.titulo}</div>
-                    <div style={{fontFamily:F.sans,fontSize:11,color:C.text2,lineHeight:1.5}}>{o.txt}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>{/* /merged section */}
         </div>
       </div>
     </div>
   );
+
 }
 
 
