@@ -956,6 +956,7 @@ function Oracle(){
   ];
 
   const gerarPDF = async () => {
+   try{
     const W=210,H=297,mg=14,cw=W-mg*2;
     const OR=[255,130,0],DK=[26,26,42],GR=[107,107,128];
     const LG=[165,165,182],BG=[247,247,250],BD=[224,224,232];
@@ -971,27 +972,8 @@ function Oracle(){
       logoData=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(blob);});
     }catch(_){}
 
-    // Noto Sans TTF (subset latin)
-    let notoR=null,notoB=null;
-    try{
-      const u8b64=async url=>{
-        const buf=await fetch(url).then(r=>r.arrayBuffer());
-        const bytes=new Uint8Array(buf);
-        let s=''; for(let i=0;i<bytes.byteLength;i++) s+=String.fromCharCode(bytes[i]);
-        return btoa(s);
-      };
-      [notoR,notoB]=await Promise.all([u8b64('/fonts/NotoSans-Regular.ttf'),u8b64('/fonts/NotoSans-Bold.ttf')]);
-    }catch(_){}
-
     const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
-    const PF=notoR&&notoB?'NotoSans':'helvetica';
-    if(notoR&&notoB){
-      doc.addFileToVFS('NotoSans-Regular.ttf',notoR);
-      doc.addFileToVFS('NotoSans-Bold.ttf',notoB);
-      doc.addFont('NotoSans-Regular.ttf','NotoSans','normal');
-      doc.addFont('NotoSans-Bold.ttf','NotoSans','bold');
-    }
-    const sf=w=>doc.setFont(PF,w);
+    const sf=w=>doc.setFont('helvetica',w);
 
     const frame=()=>{
       doc.setFillColor(...OR); doc.rect(0,0,W,4,"F");
@@ -1388,6 +1370,7 @@ function Oracle(){
     doc.text("P\u00e1gina 2 de 2",W-mg,y,{align:"right"});
 
     doc.save("RumoBrasil_Diagnostico_Tributario_"+m.ano+"_"+new Date().toISOString().slice(0,10)+".pdf");
+   }catch(err){console.error("PDF error:",err); alert("Erro ao gerar PDF: "+err.message);}
   };
 
 
