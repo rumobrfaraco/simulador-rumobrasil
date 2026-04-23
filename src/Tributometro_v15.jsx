@@ -35,7 +35,7 @@ const MILES = [
 ];
 
 // ── Crédito CBS por regime do fornecedor ──
-const CBS_CRED = { autonomo:1.86, simplesNacional:2.497, lucro:9.3 };
+const CBS_CRED = { autonomo:1.86, simplesNacional:2.3, lucro:9.3 };
 
 function calcCBSCredito(pA, pS, pL, lucroRate=CBS_CRED.lucro) {
   const tot = pA+pS+pL;
@@ -117,10 +117,22 @@ function calcReforma({
 
   // ── TERCEIROS ──
   if (usaTerceiros && pctTerceiros > 0) {
-    const baseTerceiros = frete * (pctTerceiros / 100) * (1 - (margemTerceiros || 0) / 100);
-    const cbsCredPct = calcCBSCredito(mixAutonomo, mixSN, mixLucro, lucroRateTerceiros);
-    creditoCBS_terceiros = baseTerceiros * (cbsCredPct / 100);
-    creditoIBS_terceiros = baseTerceiros * aliqIBS;
+    const pct = pctTerceiros / 100;
+    const mg  = 1 - (margemTerceiros || 0) / 100;
+    // PF (autônomo): crédito presumido — usa base cheia (sem deduzir exportação)
+    // PJSN/PJN: crédito real — usa base tributável (após exportação, pois terceiro tb não cobra CBS sobre export)
+    const baseFull     = frete * pct * mg;
+    const baseTaxable  = frete * (1 - fexp) * pct * mg;
+    const tot = mixAutonomo + mixSN + mixLucro || 1;
+    const bPF_ter  = baseFull    * (mixAutonomo / tot);
+    const bSN_ter  = baseTaxable * (mixSN / tot);
+    const bPJN_ter = baseTaxable * (mixLucro / tot);
+    creditoCBS_terceiros = bPF_ter * CBS_CRED.autonomo/100
+                         + bSN_ter * CBS_CRED.simplesNacional/100
+                         + bPJN_ter * (lucroRateTerceiros/100);
+    creditoIBS_terceiros = bPF_ter * aliqIBS * (CBS_CRED.autonomo/9.3)
+                         + bSN_ter * aliqIBS * (CBS_CRED.simplesNacional/9.3)
+                         + bPJN_ter * aliqIBS * (lucroRateTerceiros/9.3);
     // Insumos adicionais com crédito no segmento terceiros
     if (insumosAtivosTerceiros) {
       const baseTerInsumos = frete * (pctTerceiros / 100);
@@ -849,13 +861,14 @@ function Oracle(){
 
   // ═══ CÁLCULO ═══
   const lucroRateTerceiros = regimeLucroTerceiros==="Lucro Real" ? 9.3 : 9.25;
+  // Oracle é calculadora standalone de terceirização — força 100% terceiros, sem frota/agregados
   const reforma = calcReforma({
     frete, regime, pctExportacao,
     cbsAliq: m.cbs, ibsAliq: m.ibs,
-    usaFrota, pctFrota, insumosAtivos, insumosCusto,
-    usaTerceiros, pctTerceiros, mixAutonomo, mixSN, mixLucro, margemTerceiros, lucroRateTerceiros,
+    usaFrota: false, pctFrota: 0, insumosAtivos, insumosCusto,
+    usaTerceiros: true, pctTerceiros: 100, mixAutonomo, mixSN, mixLucro, margemTerceiros, lucroRateTerceiros,
     insumosAtivosTerceiros, insumosCustoTerceiros,
-    usaAgregados, pctAgregados, regimeAgregado, margemAgregados,
+    usaAgregados: false, pctAgregados: 0, regimeAgregado, margemAgregados,
     insumosAtivosAgregados, insumosCustoAgregados,
     valorCompraImob, valorVendaImob,
   });
@@ -864,10 +877,10 @@ function Oracle(){
     return calcReforma({
       frete, regime, pctExportacao,
       cbsAliq: mi.cbs, ibsAliq: mi.ibs,
-      usaFrota, pctFrota, insumosAtivos, insumosCusto,
-      usaTerceiros, pctTerceiros, mixAutonomo, mixSN, mixLucro, margemTerceiros, lucroRateTerceiros,
+      usaFrota: false, pctFrota: 0, insumosAtivos, insumosCusto,
+      usaTerceiros: true, pctTerceiros: 100, mixAutonomo, mixSN, mixLucro, margemTerceiros, lucroRateTerceiros,
       insumosAtivosTerceiros, insumosCustoTerceiros,
-      usaAgregados, pctAgregados, regimeAgregado, margemAgregados,
+      usaAgregados: false, pctAgregados: 0, regimeAgregado, margemAgregados,
       insumosAtivosAgregados, insumosCustoAgregados,
       valorCompraImob, valorVendaImob,
     }).totalRecolher;
@@ -943,671 +956,567 @@ function Oracle(){
   ];
 
   const gerarPDF = async () => {
-    const W = 210, H = 297, mg = 16, cw = W - mg * 2;
-    const OR = [255, 130, 0];
-    const DK = [30, 30, 45];
-    const GR = [110, 110, 128];
-    const LG = [165, 165, 182];
-    const BG = [247, 247, 250];
-    const BD = [222, 222, 232];
+    const W=210,H=297,mg=14,cw=W-mg*2;
+    const OR=[255,130,0],DK=[30,30,45],GR=[110,110,128];
+    const LG=[165,165,182],BG=[247,247,250],BD=[222,222,232];
+    const RD=[220,38,38],GN=[22,163,74];
+    const h2r=h=>{const v=parseInt(h.replace("#",""),16);return[(v>>16)&255,(v>>8)&255,v&255];};
+    const mCor=h2r(m.cor);
 
-    const BRL = v => "R$ " + Number(v).toLocaleString("pt-BR", {maximumFractionDigits:0});
-    const Pct = v => Number(v).toFixed(1) + "%";
+    const BRL=v=>"R$ "+Number(v||0).toLocaleString("pt-BR",{maximumFractionDigits:0});
 
-    // Carrega logo como base64
-    let logoDataUrl = null;
-    try {
-      const resp = await fetch(rumoLogo);
-      const blob = await resp.blob();
-      logoDataUrl = await new Promise(res => {
-        const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob);
-      });
-    } catch(_) {}
+    let logoData=null;
+    try{
+      const resp=await fetch(rumoLogo);
+      const blob=await resp.blob();
+      logoData=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(blob);});
+    }catch(_){}
 
-    const doc = new jsPDF({orientation:"portrait", unit:"mm", format:"a4"});
+    const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
 
-    // ── Moldura de página (chamada a cada nova página) ──
-    const drawFrame = () => {
-      doc.setFillColor(...OR);
-      doc.rect(0, 0, W, 3.5, "F");       // barra laranja topo
-      doc.setFillColor(...OR);
-      doc.rect(0, H - 3, W, 3, "F");     // barra laranja rodapé
+    const frame=()=>{
+      doc.setFillColor(...OR); doc.rect(0,0,W,3.5,"F");
+      doc.setFillColor(...OR); doc.rect(0,H-3,W,3,"F");
+    };
+    frame();
+
+    // ── HEADER ──
+    if(logoData) doc.addImage(logoData,"PNG",mg,5,20,20);
+    const tx=mg+24;
+    doc.setFont("helvetica","bold"); doc.setFontSize(14); doc.setTextColor(...DK);
+    doc.text("Impacto da Reforma Tributária — Terceirização",tx,12);
+    doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(...OR);
+    doc.text("CBS + IBS  ·  Lei Complementar 214/2025",tx,18);
+    doc.setFontSize(7); doc.setTextColor(...LG);
+    doc.text("Ano simulado: "+m.ano+" — "+m.label+"   ·   Gerado em "+
+      new Date().toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"}),tx,23);
+    doc.setDrawColor(...BD); doc.setLineWidth(0.4); doc.line(mg,27,W-mg,27);
+    // ── PARÂMETROS ──
+    let y=30;
+    doc.setFillColor(...BG); doc.rect(mg,y,cw,22,"F");
+    const ps=cw/4;
+    [{l:"Faturamento / mês",v:BRL(frete)},{l:"Exportação",v:pctExportacao+"%"},
+     {l:"Margem terceiros",v:margemTerceiros+"%"},{l:"Regime da empresa",v:regime}]
+    .forEach((p,i)=>{
+      const px=mg+i*ps+3;
+      doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(...LG);
+      doc.text(p.l,px,y+5);
+      doc.setFont("helvetica","bold"); doc.setFontSize(9.5); doc.setTextColor(...DK);
+      doc.text(p.v,px,y+12);
+    });
+    doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(...GR);
+    doc.text("Mix:  PF "+mixAutonomo+"%  ·  PJSN "+mixSN+"%  ·  PJN "+mixLucro+"%" +
+      (mixLucro>0?"  (Regime PJN: "+regimeLucroTerceiros+")":""),mg+3,y+19);
+    y+=25;
+
+    // ── DUAS COLUNAS ──
+    const gap=5,colW=(cw-gap)/2;
+    const xL=mg,xR=mg+colW+gap;
+    let yL=y,yR=y;
+
+    const debRow=(x,label,val,opts,yRef)=>{
+      const vcol=opts.green?GN:opts.red?RD:opts.bold?DK:GR;
+      doc.setFont("helvetica",opts.bold?"bold":"normal");
+      doc.setFontSize(7.5); doc.setTextColor(...(opts.green?GN:opts.dim?LG:DK));
+      doc.text(label,x+3,yRef[0]+4.5);
+      doc.setFont("helvetica","bold"); doc.setTextColor(...vcol);
+      doc.text(val,x+colW-2,yRef[0]+4.5,{align:"right"});
+      doc.setDrawColor(...BD); doc.setLineWidth(0.2);
+      doc.line(x+2,yRef[0]+6,x+colW-2,yRef[0]+6);
+      yRef[0]+=7;
     };
 
-    drawFrame();
+    const credCard=(x,label,pct,val,formula,acc,yRef)=>{
+      doc.setFillColor(...BG); doc.rect(x,yRef[0],colW,13,"F");
+      doc.setFillColor(...acc); doc.rect(x,yRef[0],2.5,13,"F");
+      doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(...DK);
+      doc.text(label+" "+pct+"%",x+5,yRef[0]+5.5);
+      doc.setFontSize(10); doc.setTextColor(...GN);
+      doc.text(BRL(val),x+colW-2,yRef[0]+6,{align:"right"});
+      doc.setFont("helvetica","normal"); doc.setFontSize(5.8); doc.setTextColor(...LG);
+      doc.text(formula,x+5,yRef[0]+10.5);
+      yRef[0]+=14;
+    };
 
-    // ── Cabeçalho ──
-    const logoSz = 24;
-    if (logoDataUrl) doc.addImage(logoDataUrl, "PNG", mg, 7, logoSz, logoSz);
+    // ─── ESQUERDA: PIS/COFINS ───
+    doc.setDrawColor(...DK); doc.setLineWidth(0.3); doc.line(xL,yL,xL+colW,yL);
+    doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.setTextColor(...DK);
+    doc.text("PIS / COFINS",xL+2,yL+8);
+    doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(...GR);
+    doc.text("Alíquota "+aliqPIS+"%  ·  "+regime,xL+2,yL+13);
+    doc.setDrawColor(...BD); doc.setLineWidth(0.2); doc.line(xL,yL+15,xL+colW,yL+15);
+    yL+=18;
 
-    const tx = mg + logoSz + 10;
-    doc.setFont("helvetica", "bold"); doc.setFontSize(17); doc.setTextColor(...DK);
-    doc.text("Análise de Impacto Tributário", tx, 15);
-    doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(...OR);
-    doc.text("Reforma Tributária · CBS + IBS", tx, 22);
-    doc.setFontSize(8); doc.setTextColor(...GR);
-    doc.text("Lei Complementar 214/2025  ·  Simulação: " + m.ano + " — " + m.label, tx, 27.5);
-    doc.text("Gerado em " + new Date().toLocaleDateString("pt-BR", {day:"2-digit", month:"long", year:"numeric"}), tx, 32.5);
+    doc.setFont("helvetica","bold"); doc.setFontSize(6); doc.setTextColor(...LG);
+    doc.text("DÉBITO",xL+2,yL+4); yL+=7;
 
-    // Linha divisória do cabeçalho
+    const yLa=[yL];
+    debRow(xL,"Faturamento bruto",BRL(frete),{dim:true},yLa);
+    if(pctExportacao>0) debRow(xL,"(-) Exportação "+pctExportacao+"%","("+BRL(frete*pctExportacao/100)+")",{green:true},yLa);
+    debRow(xL,"Base tributável",BRL(baseExec),{bold:true},yLa);
+    debRow(xL,"× Alíquota "+aliqPIS+"%","↓",{dim:true},yLa);
+    yL=yLa[0];
+
+    doc.setFillColor(255,241,241); doc.rect(xL,yL,colW,11,"F");
+    doc.setFillColor(...RD); doc.rect(xL,yL,3,11,"F");
+    doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(...RD);
+    doc.text("DÉBITO PIS/COFINS",xL+6,yL+5.5);
+    doc.setFontSize(11); doc.text(BRL(pisDeb_),xL+colW-2,yL+8,{align:"right"});
+    yL+=14;
+
+    doc.setFont("helvetica","bold"); doc.setFontSize(6); doc.setTextColor(...LG);
+    doc.text("CRÉDITOS",xL+2,yL+4);
+    doc.setFont("helvetica","normal"); doc.setFontSize(6);
+    doc.text("base: "+BRL(baseTerN),xL+colW-2,yL+4,{align:"right"});
+    yL+=8;
+
+    const yLb=[yL];
+    credCard(xL,"PF · Autônomo",mixAutonomo,pisCrPF_,
+      BRL(bPF_)+" × 75% = "+BRL(bPF_*0.75)+" → × "+aliqPIS+"%",[180,83,9],yLb);
+    credCard(xL,"PJSN · Simples Nacional",mixSN,pisCrSN_,
+      BRL(bSN_)+" × 75% = "+BRL(bSN_*0.75)+" → × "+aliqPIS+"%",[29,91,215],yLb);
+    credCard(xL,"PJN · LP/LR",mixLucro,pisCrPJN_,
+      BRL(bPJN_)+" × 100% → × "+aliqPIS+"%",[22,163,74],yLb);
+    yL=yLb[0];
+
+    doc.setFillColor(240,253,244); doc.rect(xL,yL,colW,11,"F");
+    doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(...GN);
+    doc.text("Total créditos",xL+3,yL+6.5);
+    doc.setFontSize(11); doc.text(BRL(pisCrTot_),xL+colW-2,yL+7.5,{align:"right"});
+    yL+=14;
+
+    const pCr=pisCusto_<=0?GN:RD;
+    doc.setFillColor(...(pisCusto_<=0?[240,253,244]:[255,241,241]));
+    doc.setDrawColor(...pCr); doc.setLineWidth(0.5); doc.rect(xL,yL,colW,19,"FD");
+    doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...GR);
+    doc.text("Crédito:  +"+BRL(pisCrTot_),xL+4,yL+6);
+    doc.text("Débito:   -"+BRL(pisDeb_),xL+4,yL+11);
+    doc.setDrawColor(...pCr); doc.setLineWidth(0.3); doc.line(xL+3,yL+12.5,xL+colW-3,yL+12.5);
+    doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(...pCr);
+    doc.text("→ "+(pisCusto_<=0?"CREDOR":"DEVEDOR"),xL+4,yL+17);
+    doc.setFontSize(13); doc.text(BRL(Math.abs(pisCusto_)),xL+colW-2,yL+17,{align:"right"});
+    yL+=23;
+
+    // ─── DIREITA: CBS + IBS ───
+    doc.setDrawColor(...mCor); doc.setLineWidth(0.3); doc.line(xR,yR,xR+colW,yR);
+    doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.setTextColor(...mCor);
+    doc.text("CBS "+m.cbs+"%"+(m.ibs>0?" + IBS "+m.ibs+"%":""),xR+2,yR+8);
+    doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(...GR);
+    doc.text("Total: "+m.total+"%  ·  "+m.ano+" — "+m.label,xR+2,yR+13);
+    doc.setDrawColor(...BD); doc.setLineWidth(0.2); doc.line(xR,yR+15,xR+colW,yR+15);
+    yR+=18;
+
+    doc.setFont("helvetica","bold"); doc.setFontSize(6); doc.setTextColor(...LG);
+    doc.text("DÉBITO",xR+2,yR+4); yR+=7;
+
+    const yRa=[yR];
+    debRow(xR,"Faturamento bruto",BRL(frete),{dim:true},yRa);
+    if(pctExportacao>0) debRow(xR,"(-) Exportação "+pctExportacao+"%","("+BRL(frete*pctExportacao/100)+")",{green:true},yRa);
+    debRow(xR,"Base tributável",BRL(baseExec),{bold:true},yRa);
+    debRow(xR,"× CBS "+m.cbs+"%",BRL(cbsDeb_),{red:true},yRa);
+    if(m.ibs>0) debRow(xR,"× IBS "+m.ibs+"%",BRL(ibsDeb_),{red:true},yRa);
+    yR=yRa[0];
+
+    doc.setFillColor(255,241,241); doc.rect(xR,yR,colW,11,"F");
+    doc.setFillColor(...RD); doc.rect(xR,yR,3,11,"F");
+    doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(...RD);
+    doc.text("DÉBITO "+(m.ibs>0?"CBS + IBS":"CBS"),xR+6,yR+5.5);
+    doc.setFontSize(11); doc.text(BRL(cbsDeb_+ibsDeb_),xR+colW-2,yR+8,{align:"right"});
+    yR+=14;
+
+    doc.setFont("helvetica","bold"); doc.setFontSize(6); doc.setTextColor(...LG);
+    doc.text("CRÉDITOS CBS"+(m.ibs>0?" + IBS":""),xR+2,yR+4);
+    doc.setFont("helvetica","normal"); doc.setFontSize(5.5); doc.setTextColor(...LG);
+    doc.text("PF: "+BRL(baseTerN)+"  ·  SN/PJN: "+BRL(baseTerTax),xR+colW-2,yR+4,{align:"right"});
+    yR+=8;
+
+    const yRb=[yR];
+    credCard(xR,"PF · Autônomo",mixAutonomo,cbsCrPF_,
+      BRL(bPF_)+" × 20% = "+BRL(bPF_*0.2)+" → × "+m.cbs+"%",[180,83,9],yRb);
+    credCard(xR,"PJSN · Simples Nacional",mixSN,cbsCrSN_,
+      BRL(bSN_cbs)+" × "+CBS_CRED.simplesNacional+"%",[29,91,215],yRb);
+    credCard(xR,"PJN · "+(regimeLucroTerceiros==="Lucro Real"?"LR":"LP"),mixLucro,cbsCrPJN_,
+      BRL(bPJN_cbs)+" × "+lucroRateTerceiros+"%",[22,163,74],yRb);
+    if(m.ibs>0){
+      doc.setFillColor(...BG); doc.rect(xR,yRb[0],colW,10,"F");
+      doc.setFillColor(147,51,234); doc.rect(xR,yRb[0],2.5,10,"F");
+      doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...DK);
+      doc.text("Créditos IBS "+m.ibs+"%",xR+5,yRb[0]+5.5);
+      doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(147,51,234);
+      doc.text(BRL(ibsCrTot_),xR+colW-2,yRb[0]+6,{align:"right"});
+      yRb[0]+=12;
+    }
+    yR=yRb[0];
+
+    doc.setFillColor(240,253,244); doc.rect(xR,yR,colW,11,"F");
+    doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(...GN);
+    doc.text("Total créditos",xR+3,yR+6.5);
+    doc.setFontSize(11); doc.text(BRL(cbsCrTot_+ibsCrTot_),xR+colW-2,yR+7.5,{align:"right"});
+    yR+=14;
+
+    const cCr=cbsCusto_<=0?GN:RD;
+    doc.setFillColor(...(cbsCusto_<=0?[240,253,244]:[255,241,241]));
+    doc.setDrawColor(...cCr); doc.setLineWidth(0.5); doc.rect(xR,yR,colW,19,"FD");
+    doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...GR);
+    doc.text("Créditos: +"+BRL(cbsCrTot_+ibsCrTot_),xR+4,yR+6);
+    doc.text("Débito:   -"+BRL(cbsDeb_+ibsDeb_),xR+4,yR+11);
+    doc.setDrawColor(...cCr); doc.setLineWidth(0.3); doc.line(xR+3,yR+12.5,xR+colW-3,yR+12.5);
+    doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(...cCr);
+    doc.text("→ "+(cbsCusto_<=0?"CREDOR":"CBS A PAGAR"),xR+4,yR+17);
+    doc.setFontSize(13); doc.text(BRL(Math.abs(cbsCusto_)),xR+colW-2,yR+17,{align:"right"});
+    yR+=23;
+
+    // ── COMPARATIVO ──
+    y=Math.max(yL,yR)+6;
+    if(y+42>278){doc.addPage();frame();y=20;}
+    const diff=cbsCusto_-pisCusto_;
+    const dCor=diff>0?RD:GN;
+    doc.setFillColor(...BG); doc.setDrawColor(...BD); doc.setLineWidth(0.25);
+    doc.rect(mg,y,cw,40,"FD");
+    doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(...GR);
+    doc.text("COMPARATIVO — HOJE vs REFORMA",mg+4,y+6);
+    doc.setDrawColor(...BD); doc.setLineWidth(0.2); doc.line(mg+3,y+8,mg+cw-3,y+8);
+
+    const hw=cw/2-4;
+    [{l:"Hoje — PIS/COFINS "+aliqPIS+"%",v:Math.abs(pisCusto_),s:(pisCusto_<=0?"CREDOR":"DEVEDOR"),c:pisCusto_<=0?GN:RD},
+     {l:"Reforma "+m.ano+"  —  CBS"+(m.ibs>0?" + IBS":"")+" "+m.total+"%",v:Math.abs(cbsCusto_),s:(cbsCusto_<=0?"CREDOR":"CBS A PAGAR"),c:cbsCusto_<=0?GN:RD}]
+    .forEach((item,i)=>{
+      const cx=mg+3+i*(hw+8);
+      doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(...LG);
+      doc.text(item.l,cx,y+14);
+      doc.setFont("helvetica","bold"); doc.setFontSize(13); doc.setTextColor(...item.c);
+      doc.text(BRL(item.v),cx,y+22);
+      doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...item.c);
+      doc.text(item.s,cx,y+27);
+    });
     doc.setDrawColor(...BD); doc.setLineWidth(0.4);
-    doc.line(mg, 37, W - mg, 37);
+    doc.line(mg+cw/2,y+10,mg+cw/2,y+30);
 
-    let y = 46;
+    doc.setFillColor(...(diff>0?[255,241,241]:[240,253,244]));
+    doc.rect(mg+3,y+31,cw-6,6,"F");
+    doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(...dCor);
+    doc.text((diff>0?"▲ Custo adicional":"▼ Economia")+" vs hoje:  "+(diff>0?"+":"")+BRL(diff),mg+cw/2,y+35.5,{align:"center"});
+    y+=46;
 
-    // ── Helpers ──
-    const section = (title) => {
-      doc.setFillColor(...OR);
-      doc.rect(mg, y, 2.5, 7, "F");
-      doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(...GR);
-      doc.text(title.toUpperCase(), mg + 5, y + 5);
-      y += 10;
-      doc.setDrawColor(...BD); doc.setLineWidth(0.25);
-      doc.line(mg + 5, y - 1, W - mg, y - 1);
-      y += 4;
-    };
+    // ── DISCLAIMER ──
+    if(y>268){doc.addPage();frame();y=20;}
+    y+=3;
+    doc.setDrawColor(...BD); doc.setLineWidth(0.25); doc.line(mg,y,W-mg,y); y+=5;
+    doc.setFont("helvetica","italic"); doc.setFontSize(6.5); doc.setTextColor(...LG);
+    doc.splitTextToSize("Este documento é de caráter informativo e não substitui uma consulta tributária especializada. Os valores são estimativas baseadas nos parâmetros informados e nas alíquotas previstas na LC 214/2025.",cw)
+      .forEach(l=>{doc.text(l,mg,y);y+=3.8;});
 
-    const dataRow = (label, value, valueColor = DK) => {
-      doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(...GR);
-      doc.text(label, mg + 5, y);
-      doc.setFont("helvetica","bold"); doc.setFontSize(8.5); doc.setTextColor(...valueColor);
-      doc.text(value, W - mg, y, {align:"right"});
-      y += 5.5;
-    };
-
-    const subtotalBar = (label, value) => {
-      doc.setFillColor(...BG);
-      doc.rect(mg + 5, y, cw - 5, 7, "F");
-      doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(...DK);
-      doc.text(label, mg + 8, y + 5);
-      doc.setTextColor(...OR);
-      doc.text(value, W - mg - 2, y + 5, {align:"right"});
-      y += 10;
-    };
-
-    // ── Seção 1: Perfil Tributário ──
-    section("Perfil Tributário");
-    const col2 = W / 2 + 4;
-    // linha 1
-    doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...LG);
-    doc.text("Receita Bruta de Frete (mensal)", mg + 5, y);
-    doc.text("Frota de Veículos", col2, y);
-    y += 4;
-    doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(...DK);
-    doc.text(BRL(frete), mg + 5, y);
-    doc.text(frota + " veículos", col2, y);
-    y += 7;
-    // linha 2
-    doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...LG);
-    doc.text("Enquadramento Tributário", mg + 5, y);
-    doc.text("Exportações (isento CBS/IBS)", col2, y);
-    y += 4;
-    doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(...DK);
-    doc.text(regime, mg + 5, y);
-    doc.text(pctExportacao + "% da receita", col2, y);
-    y += 10;
-
-    // ── Seção 2: Estrutura Operacional ──
-    section("Estrutura Operacional");
-    if (usaFrota)     dataRow("Frota Própria", pctFrota + "% da receita");
-    if (usaTerceiros) dataRow("Terceiros / Subcontratados · " + mixAutonomo + "% aut. · " + mixSN + "% SN · " + mixLucro + "% LP/LR", pctTerceiros + "% da receita");
-    if (usaAgregados) dataRow("Agregados (" + regimeAgregado + ")", pctAgregados + "% da receita");
-    y += 4;
-
-    // ── Seção 3: Apuração Tributária ──
-    section("Apuração Tributária — " + m.ano);
-
-    // CBS
-    doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(...OR);
-    doc.text("Contribuição sobre Bens e Serviços (CBS) — " + m.cbs + "%", mg + 5, y); y += 6;
-    dataRow("Incidência CBS sobre a receita tributável", BRL(reforma.cbsDebito));
-    if (usaFrota)     dataRow("  (-) Créditos — frota própria", BRL(reforma.creditoCBS_frota));
-    if (usaTerceiros) dataRow("  (-) Créditos — subcontratados", BRL(reforma.creditoCBS_terceiros));
-    if (usaAgregados) dataRow("  (-) Créditos — agregados", BRL(reforma.creditoCBS_agregados));
-    subtotalBar("CBS a Recolher", BRL(reforma.cbsRecolher));
-
-    // IBS
-    if (m.ibs > 0) {
-      doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(...OR);
-      doc.text("Imposto sobre Bens e Serviços (IBS) — " + m.ibs + "%", mg + 5, y); y += 6;
-      dataRow("Incidência IBS sobre a receita tributável", BRL(reforma.ibsDebito));
-      if (usaFrota)     dataRow("  (-) Créditos — frota própria", BRL(reforma.creditoIBS_frota));
-      if (usaTerceiros) dataRow("  (-) Créditos — subcontratados", BRL(reforma.creditoIBS_terceiros));
-      if (usaAgregados) dataRow("  (-) Créditos — agregados", BRL(reforma.creditoIBS_agregados));
-      subtotalBar("IBS a Recolher", BRL(reforma.ibsRecolher));
-    }
-
-    // ── Box Total ──
-    y += 2;
-    doc.setFillColor(255, 244, 229);
-    doc.setDrawColor(...OR); doc.setLineWidth(0.5);
-    doc.roundedRect(mg, y, cw, 17, 2, 2, "FD");
-    doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(...DK);
-    doc.text("Tributo Estimado a Recolher / mês", mg + 5, y + 7);
-    doc.setFontSize(15); doc.setTextColor(...OR);
-    doc.text(BRL(reforma.totalRecolher), W - mg - 4, y + 7, {align:"right"});
-    doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(...GR);
-    doc.text(Pct(pctCarga) + " da receita bruta", W - mg - 4, y + 13, {align:"right"});
-    y += 23;
-
-    // ── KPIs 3 boxes ──
-    const bxW = (cw - 6) / 3;
-    [
-      {l:"Incidência total (CBS + IBS)", v:BRL(reforma.cbsDebito + reforma.ibsDebito), s:"débito bruto"},
-      {l:"Créditos recuperados", v:BRL(reforma.totalCreditoCBS + reforma.totalCreditoIBS), s:"não-cumulatividade"},
-      {l:"Impacto anual estimado", v:BRL(reforma.totalRecolher * 12), s:"12 meses projetados"},
-    ].forEach((k, i) => {
-      const bx = mg + i * (bxW + 3);
-      doc.setFillColor(...BG); doc.setDrawColor(...BD); doc.setLineWidth(0.25);
-      doc.rect(bx, y, bxW, 17, "FD");
-      doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(...LG);
-      doc.text(k.l, bx + 3, y + 5);
-      doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(...DK);
-      doc.text(k.v, bx + 3, y + 12);
-      doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(...LG);
-      doc.text(k.s, bx + 3, y + 16);
-    });
-    y += 23;
-
-    // ── Seção 4: Comparativo CBS+IBS ──
-    if (y + 95 > 278) { doc.addPage(); drawFrame(); y = 46; }
-    section("Comparativo CBS+IBS — 2027 a 2033");
-
-    const liq2027pdf = calcReforma({
-      frete, regime, pctExportacao,
-      cbsAliq:9.3, ibsAliq:0,
-      usaFrota, pctFrota, insumosAtivos, insumosCusto,
-      usaTerceiros, pctTerceiros, mixAutonomo, mixSN, mixLucro, margemTerceiros, lucroRateTerceiros,
-      insumosAtivosTerceiros, insumosCustoTerceiros,
-      usaAgregados, pctAgregados, regimeAgregado, margemAgregados,
-      insumosAtivosAgregados, insumosCustoAgregados,
-    }).totalRecolher;
-    const liq2033pdf = calcReforma({
-      frete, regime, pctExportacao,
-      cbsAliq:9.3, ibsAliq:18.7,
-      usaFrota, pctFrota, insumosAtivos, insumosCusto,
-      usaTerceiros, pctTerceiros, mixAutonomo, mixSN, mixLucro, margemTerceiros, lucroRateTerceiros,
-      insumosAtivosTerceiros, insumosCustoTerceiros,
-      usaAgregados, pctAgregados, regimeAgregado, margemAgregados,
-      insumosAtivosAgregados, insumosCustoAgregados,
-    }).totalRecolher;
-    const vAnoPDF = (reforma.totalRecolher - liq2027pdf) / Math.max(liq2027pdf, 1) * 100;
-    const v33PDF  = (liq2033pdf - liq2027pdf) / Math.max(liq2027pdf, 1) * 100;
-
-    // 3 colunas comparativas — altura fixa 34mm
-    const CMP_H = 34;
-    const bxCmp = (cw - 6) / 3;
-    [
-      {titulo:"2027 — CBS Ativa",          sub:"CBS 9,3% · IBS ainda não vigora",  valor:liq2027pdf,            varP:null,    cor:[29,91,215]},
-      {titulo:String(m.ano)+" — "+m.label, sub:"CBS "+m.cbs+"% + IBS "+m.ibs+"%", valor:reforma.totalRecolher, varP:vAnoPDF, cor:OR},
-      {titulo:"2033 — IVA Dual Pleno",     sub:"CBS 9,3% + IBS 18,7%",            valor:liq2033pdf,            varP:v33PDF,  cor:[220,38,38]},
-    ].forEach((bx, i) => {
-      const bxLeft = mg + i * (bxCmp + 3);
-      doc.setFillColor(...BG); doc.setDrawColor(...BD); doc.setLineWidth(0.25);
-      doc.rect(bxLeft, y, bxCmp, CMP_H, "FD");
-      doc.setFillColor(...bx.cor);
-      doc.rect(bxLeft, y, bxCmp, 2.5, "F");
-      doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(...bx.cor);
-      doc.text(bx.titulo, bxLeft + 3, y + 8);
-      doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(...LG);
-      doc.splitTextToSize(bx.sub, bxCmp - 6).forEach((l, li) => {
-        doc.text(l, bxLeft + 3, y + 13 + li * 3.5);
-      });
-      doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(...DK);
-      doc.text(BRL(bx.valor), bxLeft + 3, y + 24);
-      doc.setFont("helvetica","normal"); doc.setFontSize(6.5);
-      if (bx.varP !== null) {
-        const up = bx.varP > 0;
-        doc.setTextColor(up ? 220 : 22, up ? 38 : 163, up ? 38 : 74);
-        doc.text((up ? "▲ +" : "▼ ") + Math.abs(bx.varP).toFixed(0) + "% vs. 2027", bxLeft + 3, y + 30);
-      } else {
-        doc.setTextColor(...LG);
-        doc.text(BRL(liq2027pdf*12) + "/ano", bxLeft + 3, y + 30);
-      }
-    });
-    y += CMP_H + 6;
-
-    // Narrativa comercial — altura dinâmica
-    const credTotPDF = reforma.totalCreditoCBS + reforma.totalCreditoIBS;
-    const debTotPDF  = reforma.cbsDebito + reforma.ibsDebito;
-    const eficPDF    = debTotPDF > 0 ? credTotPDF / debTotPDF * 100 : 0;
-    const narrativaTxt = vAnoPDF > 0
-      ? `Em ${m.ano}, o tributo CBS+IBS sobe de ${BRL(liq2027pdf)} (2027) para ${BRL(reforma.totalRecolher)}/mês (+${vAnoPDF.toFixed(0)}%), com IBS entrando de forma escalonada. Em 2033 chegará a ${BRL(liq2033pdf)}/mês (+${v33PDF.toFixed(0)}% vs. 2027).`
-      : `Em ${m.ano}, com créditos sobre insumos, o tributo CBS+IBS é ${BRL(reforma.totalRecolher)}/mês. Os ${BRL(credTotPDF)}/mês em créditos compensam ${eficPDF.toFixed(0)}% do débito total — quem mapear os insumos sai na frente.`;
-    const nLines = doc.splitTextToSize(narrativaTxt, cw - 12);
-    const nBoxH = 12 + nLines.length * 4.5;
-    if (y + nBoxH > 278) { doc.addPage(); drawFrame(); y = 46; }
-    doc.setFillColor(255, 244, 229);
-    doc.rect(mg, y, cw, nBoxH, "F");
-    doc.setFillColor(...OR); doc.rect(mg, y, 3, nBoxH, "F");
-    doc.setFont("helvetica","bold"); doc.setFontSize(8.5); doc.setTextColor(...OR);
-    doc.text("O que muda para o seu negócio", mg + 6, y + 7);
-    doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(...DK);
-    let ny = y + 12;
-    nLines.forEach(l => { doc.text(l, mg + 6, ny); ny += 4.5; });
-    y += nBoxH + 5;
-
-    // KPIs rápidos — 3 colunas, altura fixa 20mm
-    const KPI_H = 20;
-    const kpiBxPDF = (cw - 6) / 3;
-    if (y + KPI_H > 278) { doc.addPage(); drawFrame(); y = 46; }
-    [
-      {l:"Por R$ 1.000 faturados",  v1:"2027: R$ "+(liq2027pdf/frete*1000).toFixed(2),  v2:"Em "+m.ano+": R$ "+(reforma.totalRecolher/frete*1000).toFixed(2)},
-      {l:"Créditos recuperados",    v1:BRL(credTotPDF)+"/mês",                           v2:eficPDF.toFixed(0)+"% do débito total"},
-      {l:"Carga efetiva s/ fat.",   v1:"2027: "+(liq2027pdf/frete*100).toFixed(2)+"%",   v2:"Em "+m.ano+": "+(reforma.totalRecolher/frete*100).toFixed(2)+"%"},
-    ].forEach((k, i) => {
-      const kx = mg + i * (kpiBxPDF + 3);
-      doc.setFillColor(...BG); doc.setDrawColor(...BD); doc.setLineWidth(0.25);
-      doc.rect(kx, y, kpiBxPDF, KPI_H, "FD");
-      doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(...LG);
-      doc.text(k.l, kx + 3, y + 6);
-      doc.setFont("helvetica","bold"); doc.setFontSize(8.5); doc.setTextColor(...DK);
-      doc.text(k.v1, kx + 3, y + 12);
-      doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(...OR);
-      doc.text(k.v2, kx + 3, y + 17.5);
-    });
-    y += KPI_H + 8;
-
-    // ── Seção 5: Projeção ──
-    if (y + 55 > 278) { doc.addPage(); drawFrame(); y = 46; }
-    section("Projeção do Tributo Líquido — 2027 a 2033");
-    y += 2;
-
-    const vals = MILES.map(mi => calcTot(mi));
-    const maxV = Math.max(...vals, 1);
-    const barH = 26, bW2 = cw / MILES.length;
-
-    MILES.forEach((mi, i) => {
-      const h = Math.max(1.5, (vals[i] / maxV) * barH);
-      const bx = mg + i * bW2;
-      const active = mi.ano === ano;
-      doc.setFillColor(active ? OR[0] : 210, active ? OR[1] : 210, active ? OR[2] : 220);
-      doc.rect(bx + 1.5, y + barH - h, bW2 - 3, h, "F");
-      doc.setFont("helvetica", active ? "bold" : "normal");
-      doc.setFontSize(6.5);
-      doc.setTextColor(active ? OR[0] : GR[0], active ? OR[1] : GR[1], active ? OR[2] : GR[2]);
-      const lbl = vals[i] < 1000 ? "R$"+Math.round(vals[i]) : "R$"+(vals[i]/1000).toFixed(1)+"k";
-      doc.text(lbl, bx + bW2/2, y + barH - h - 1.5, {align:"center"});
-      doc.text(String(mi.ano), bx + bW2/2, y + barH + 5, {align:"center"});
-    });
-    y += barH + 14;
-
-    // ── Seção 6: Análise e Recomendações ──
-    if (y + 30 > 278) { doc.addPage(); drawFrame(); y = 46; }
-    section("Análise e Recomendações");
-    y += 2;
-
-    const recs = [];
-    if (usaFrota && reforma.creditoCBS_frota + reforma.creditoIBS_frota > 0)
-      recs.push({t:"Frota própria: créditos plenos sobre insumos operacionais",
-        d:`A frota própria gera ${BRL(reforma.creditoCBS_frota + reforma.creditoIBS_frota)}/mês em créditos de CBS e IBS sobre ${Object.values(insumosAtivos).filter(Boolean).length} insumos ativos (diesel, pneus, peças, manutenção, pedágios).`});
-    if (usaTerceiros) {
-      const cbsM = calcCBSCredito(mixAutonomo, mixSN, mixLucro, lucroRateTerceiros);
-      recs.push({t:`Subcontratados: crédito CBS médio de ${cbsM.toFixed(2)}%`,
-        d:`Composição atual: ${mixAutonomo}% autônomos · ${mixSN}% Simples Nacional · ${mixLucro}% Lucro Real. ${mixLucro < 30 ? "Ampliar participação de prestadores no Lucro Real eleva significativamente os créditos." : "Composição equilibrada para aproveitamento de créditos."}`});
-    }
-    if (pctExportacao > 0)
-      recs.push({t:`Exportações: ${pctExportacao}% isento de CBS e IBS`,
-        d:"Receitas de exportação não geram débito. Créditos sobre insumos são mantidos e podem ser ressarcidos, gerando caixa adicional."});
-    recs.push({t:"Próximos passos: adequação à Reforma Tributária",
-      d:"Atualização dos layouts de CT-e e NF-e para os campos CBS/IBS (obrigatório em 2027), certificação do TMS/ERP e revisão de contratos com cláusula de reajuste tributário."});
-
-    recs.forEach(r => {
-      const tLines = doc.splitTextToSize(r.t, cw - 10);
-      const dLines = doc.splitTextToSize(r.d, cw - 10);
-      const recH = tLines.length * 5 + dLines.length * 4.5 + 8;
-      if (y + recH > 278) { doc.addPage(); drawFrame(); y = 46; }
-      doc.setFillColor(...OR);
-      doc.circle(mg + 3, y + 2, 1.2, "F");
-      doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(...DK);
-      let ry = y;
-      tLines.forEach(l => { doc.text(l, mg + 7, ry); ry += 4.8; });
-      doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(...GR);
-      dLines.forEach(l => { doc.text(l, mg + 7, ry); ry += 4.5; });
-      y = ry + 5;
-    });
-
-    // ── Plano de Ação ──
-    if (y + 20 > 278) { doc.addPage(); drawFrame(); y = 46; }
-    doc.setFillColor(...OR); doc.rect(mg, y, 2.5, 7, "F");
-    doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(...GR);
-    doc.text("PLANO DE AÇÃO — COMO SE PREPARAR", mg + 5, y + 5);
-    y += 13;
-    doc.setDrawColor(...BD); doc.setLineWidth(0.25);
-    doc.line(mg, y - 1, W - mg, y - 1);
-    y += 4;
-
-    [
-      {prazo:"Ago 2026", status:"URGENTE", cor:[220,38,38],
-       acao:"Atualizar layout CT-e e NF-e com campos CBS/IBS obrigatórios",
-       imp:"Multa por emissão incorreta a partir de jan/2027 — sistemas devem estar prontos"},
-      {prazo:"Dez 2026", status:"URGENTE", cor:[220,38,38],
-       acao:"Certificar TMS/ERP para emissão no novo padrão fiscal CBS/IBS",
-       imp:"Risco de glosa de créditos e inconsistência fiscal em todo o período de transição"},
-      {prazo:"Jan 2027", status:"OPORT.",  cor:[22,163,74],
-       acao:"Mapear mix de fornecedores (autônomo/SN/LP-LR) para maximizar crédito CBS",
-       imp:"Mix médio TRC = 3,73%. Cada 10pp a mais em LP/LR aumenta o crédito em ~0,75%"},
-      {prazo:"Jun 2027", status:"ATENÇÃO", cor:[180,83,9],
-       acao:"Inserir cláusula de reajuste tributário em contratos de longo prazo",
-       imp:"Garante repasse do IVA Dual ao tomador sem comprimir a margem da transportadora"},
-      {prazo:"2026",     status:"ATENÇÃO", cor:[180,83,9],
-       acao:"Capacitar equipe fiscal e comercial nas regras CBS, IBS e créditos",
-       imp:"Apenas 23% das transportadoras iniciaram a adaptação (ABCAM 2025)"},
-    ].forEach(a => {
-      const aLines = doc.splitTextToSize(a.acao, cw - 22);
-      const iLines = doc.splitTextToSize("Impacto: " + a.imp, cw - 22);
-      const boxH = 9 + aLines.length * 4 + iLines.length * 3.8 + 4;
-      if (y + boxH > 278) { doc.addPage(); drawFrame(); y = 46; }
-      doc.setFillColor(...BG); doc.setDrawColor(...BD); doc.setLineWidth(0.2);
-      doc.rect(mg, y, cw, boxH, "FD");
-      doc.setFillColor(...a.cor); doc.rect(mg, y, 2.5, boxH, "F");
-      doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(...a.cor);
-      doc.text(a.status, mg + 5, y + 6);
-      doc.setFontSize(6.5); doc.setTextColor(...LG);
-      doc.text(a.prazo, W - mg - 3, y + 6, {align:"right"});
-      let ay = y + 11;
-      doc.setFont("helvetica","bold"); doc.setFontSize(8.5); doc.setTextColor(...DK);
-      aLines.forEach(l => { doc.text(l, mg + 5, ay); ay += 4; });
-      ay += 1.5;
-      doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(...LG);
-      iLines.forEach(l => { doc.text(l, mg + 5, ay); ay += 3.8; });
-      y += boxH + 3;
-    });
-    y += 3;
-
-    // ── Disclaimer ──
-    if (y > 268) { doc.addPage(); drawFrame(); y = 46; }
-    y += 3;
-    doc.setDrawColor(...BD); doc.setLineWidth(0.25); doc.line(mg, y, W - mg, y); y += 5;
-    doc.setFont("helvetica","italic"); doc.setFontSize(7); doc.setTextColor(...LG);
-    doc.splitTextToSize("Este documento é de caráter informativo e não substitui uma consulta tributária especializada. Os valores são estimativas baseadas nos parâmetros informados e nas alíquotas previstas na LC 214/2025.", cw)
-      .forEach(l => { doc.text(l, mg, y); y += 3.8; });
-
-    doc.save("RumoBrasil_Analise-Tributaria_" + m.ano + "_" + new Date().toISOString().slice(0,10) + ".pdf");
+    doc.save("RumoBrasil_Terceirizacao_"+m.ano+"_"+new Date().toISOString().slice(0,10)+".pdf");
   };
 
 
   // ── Cálculos para layout do rascunho ──
-  const aliqPIS   = regime==="Lucro Real"?9.25:3.65;
-  const baseTerN  = frete*(1-(margemTerceiros||0)/100);
-  const mixN      = mixAutonomo+mixSN+mixLucro||1;
-  const bPF_      = baseTerN*(mixAutonomo/mixN);
-  const bSN_      = baseTerN*(mixSN/mixN);
-  const bPJN_     = baseTerN*(mixLucro/mixN);
-  const pisDeb_   = baseExec*aliqPIS/100;
-  const pisCrPF_  = bPF_ *0.75*aliqPIS/100;
-  const pisCrSN_  = bSN_ *0.75*aliqPIS/100;
-  const pisCrPJN_ = bPJN_*1.00*aliqPIS/100;
-  const pisCrTot_ = pisCrPF_+pisCrSN_+pisCrPJN_;
-  const pisCusto_ = pisDeb_-pisCrTot_;
-  const cbsDeb_   = reforma.cbsDebito;
-  const ibsDeb_   = reforma.ibsDebito;
-  const cbsCrPF_  = bPF_ *CBS_CRED.autonomo/100;
-  const cbsCrSN_  = bSN_ *CBS_CRED.simplesNacional/100;
-  const cbsCrPJN_ = bPJN_*lucroRateTerceiros/100;
-  const cbsCrTot_ = reforma.creditoCBS_terceiros;
-  const ibsCrTot_ = reforma.creditoIBS_terceiros;
-  const cbsCusto_ = reforma.totalRecolher;
+  const aliqPIS    = regime==="Lucro Real"?9.25:3.65;
+  const mixN       = mixAutonomo+mixSN+mixLucro||1;
+  // Base cheia (sem deduçãoo de exportação) — usada para PIS créditos e CBS crédito PF
+  const baseTerN   = frete*(1-(margemTerceiros||0)/100);
+  // Base tributável (após exportação) — usada para CBS créditos PJSN e PJN
+  const baseTerTax = baseExec*(1-(margemTerceiros||0)/100);
+  const bPF_       = baseTerN  *(mixAutonomo/mixN);
+  const bSN_       = baseTerN  *(mixSN/mixN);
+  const bPJN_      = baseTerN  *(mixLucro/mixN);
+  const bSN_cbs    = baseTerTax*(mixSN/mixN);
+  const bPJN_cbs   = baseTerTax*(mixLucro/mixN);
+  // PIS / COFINS
+  const pisDeb_    = baseExec*aliqPIS/100;
+  const pisCrPF_   = bPF_ *0.75*aliqPIS/100;
+  const pisCrSN_   = bSN_ *0.75*aliqPIS/100;
+  const pisCrPJN_  = bPJN_*1.00*aliqPIS/100;
+  const pisCrTot_  = pisCrPF_+pisCrSN_+pisCrPJN_;
+  const pisCusto_  = pisDeb_-pisCrTot_;
+  // CBS + IBS
+  const cbsDeb_    = reforma.cbsDebito;
+  const ibsDeb_    = reforma.ibsDebito;
+  const cbsCrPF_   = bPF_    *CBS_CRED.autonomo/100;
+  const cbsCrSN_   = bSN_cbs *CBS_CRED.simplesNacional/100;
+  const cbsCrPJN_  = bPJN_cbs*lucroRateTerceiros/100;
+  const cbsCrTot_  = cbsCrPF_+cbsCrSN_+cbsCrPJN_;
+  const ibsCrTot_  = reforma.creditoIBS_terceiros;
+  const cbsCusto_  = reforma.totalRecolher;
   const BRL_      = (v)=>"R$ "+(v||0).toLocaleString("pt-BR",{maximumFractionDigits:0});
 
+
+  const showCfg = !!collapsed["cfg"];
+
   return(
-    <div style={{display:"flex",flexDirection:"column",height:isMob?"auto":"calc(100vh - 48px)",minHeight:isMob?"100svh":"auto"}}>
+    <div style={{display:"flex",flexDirection:"column",height:isMob?"auto":"100dvh",minHeight:isMob?"100svh":"auto"}}>
 
       {/* ── Sub-header ── */}
-      <div style={{background:C.bg1,borderBottom:"1px solid "+C.border,padding:"10px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,flexWrap:"wrap",gap:8}}>
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <span style={{width:6,height:6,borderRadius:"50%",background:C.green,display:"inline-block",animation:"liveDot 2s infinite"}}/>
-          <span style={{fontFamily:F.sans,fontSize:13,fontWeight:700,color:C.text}}>Terceirização</span>
+      <div style={{background:C.bg1,borderBottom:"1px solid "+C.border,padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,gap:8}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
+          <span style={{width:6,height:6,borderRadius:"50%",background:C.green,flexShrink:0,display:"inline-block",animation:"liveDot 2s infinite"}}/>
+          <span style={{fontFamily:F.sans,fontSize:13,fontWeight:700,color:C.text,whiteSpace:"nowrap"}}>Terceirização</span>
           <Bdg color={C.brand}>REFORMA</Bdg>
-          <span style={{fontFamily:F.sans,fontSize:10,color:C.text3}}>CBS + IBS — LC 214/2025</span>
+          <span style={{fontFamily:F.sans,fontSize:9,color:C.text3,display:isMob?"none":"inline"}}>CBS + IBS · LC 214/2025</span>
         </div>
-        <button onClick={()=>gerarPDF()} style={{display:"flex",alignItems:"center",gap:5,border:"none",background:C.brand,color:"#fff",borderRadius:2,padding:"5px 12px",cursor:"pointer",fontFamily:F.sans,fontSize:10,fontWeight:600,letterSpacing:0.3}}>
-          ↓ Exportar PDF
-        </button>
+        <div style={{display:"flex",gap:6,flexShrink:0}}>
+          <button onClick={()=>gerarPDF()} style={{border:"none",background:C.brand,color:"#fff",borderRadius:2,padding:"6px 12px",cursor:"pointer",fontFamily:F.sans,fontSize:10,fontWeight:600,whiteSpace:"nowrap"}}>
+            ↓ PDF
+          </button>
+        </div>
       </div>
 
       {/* ── INPUTS ── */}
-      <div style={{background:C.bg1,borderBottom:"2px solid "+C.border,padding:"12px 20px",flexShrink:0}}>
-        <div style={{display:"flex",flexWrap:"wrap",gap:12,alignItems:"flex-end"}}>
+      <div style={{background:C.bg1,borderBottom:"2px solid "+C.border,flexShrink:0}}>
 
-          {/* Bloco 1: Faturamento / Exportação / Margem */}
-          <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end",paddingRight:12,borderRight:"1px solid "+C.border}}>
+        {/* Linha principal: Faturamento + botão configurar */}
+        <div style={{padding:"12px 16px 8px",display:"flex",gap:10,alignItems:"flex-end",flexWrap:"wrap"}}>
+          <div style={{flex:"1 1 180px",maxWidth:280}}>
             <NInput label="Faturamento / mês" raw={rf} setRaw={setRf} onBlur={cf} prefix="R$"/>
+          </div>
+          <div style={{flex:"1 1 100px",maxWidth:160}}>
             <NInput label="% Exportação" raw={rExp} setRaw={setRExp} onBlur={cExp} suffix="%"/>
+          </div>
+          <div style={{flex:"1 1 80px",maxWidth:120}}>
             <NInput label="Margem" raw={rMT} setRaw={setRMT} onBlur={cMT} suffix="%"/>
           </div>
-
-          {/* Bloco 2: Mix PF / PJSN / PJN */}
-          <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end",paddingRight:12,borderRight:"1px solid "+C.border}}>
-            <NInput label="% PF (autônomo)" raw={rA} setRaw={setRA} onBlur={cA} suffix="%"/>
-            <NInput label="% PJSN" raw={rS} setRaw={setRS} onBlur={cS} suffix="%"/>
-            <NInput label="% PJN" raw={rL} setRaw={setRL} onBlur={cL} suffix="%"/>
-            <div style={{paddingBottom:6}}>
-              <div style={{fontFamily:F.mono,fontSize:12,fontWeight:700,color:mixColor}}>{mixTot}%{mixTot===100?" ✓":""}</div>
-              <div style={{fontFamily:F.sans,fontSize:8,color:C.text3}}>total mix</div>
-            </div>
-          </div>
-
-          {/* Bloco 3: Regime da empresa */}
-          <div style={{paddingRight:12,borderRight:"1px solid "+C.border}}>
-            <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginBottom:4,textTransform:"uppercase",letterSpacing:0.5}}>Regime da empresa</div>
-            <div style={{display:"flex",gap:3,flexWrap:"wrap"}}>
-              {[{r:"Lucro Real",l:"LR — 9,25%"},{r:"Lucro Presumido",l:"LP — 3,65%"},{r:"Simples Nacional",l:"SN — 3,65%"}].map(({r,l})=>(
-                <button key={r} onClick={()=>setRegime(r)} style={{border:"1px solid "+(regime===r?C.brand:C.border),background:regime===r?C.brand+"18":C.bg2,color:regime===r?C.brand:C.text2,borderRadius:2,padding:"5px 8px",cursor:"pointer",fontFamily:F.sans,fontSize:9,transition:"all 0.12s",WebkitTapHighlightColor:"transparent"}}>
-                  {l}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Bloco 4: Regime PJN terceiros */}
-          <div style={{paddingRight:12,borderRight:"1px solid "+C.border}}>
-            <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginBottom:4,textTransform:"uppercase",letterSpacing:0.5}}>Regime PJN (terceiros)</div>
-            <div style={{display:"flex",gap:3}}>
-              {[{r:"Lucro Real",l:"LR — 9,3%"},{r:"Lucro Presumido",l:"LP — 9,25%"}].map(({r,l})=>(
-                <button key={r} onClick={()=>setRegimeLucroTerceiros(r)} style={{border:"1px solid "+(regimeLucroTerceiros===r?C.brand:C.border),background:regimeLucroTerceiros===r?C.brand+"18":C.bg2,color:regimeLucroTerceiros===r?C.brand:C.text2,borderRadius:2,padding:"5px 8px",cursor:"pointer",fontFamily:F.sans,fontSize:9,transition:"all 0.12s",WebkitTapHighlightColor:"transparent"}}>
-                  {l}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Bloco 5: Ano simulado */}
-          <div>
-            <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginBottom:4,textTransform:"uppercase",letterSpacing:0.5}}>Ano simulado</div>
-            <div style={{display:"flex",gap:3,flexWrap:"wrap"}}>
-              {MILES.map(mi=>(
-                <button key={mi.ano} onClick={()=>setAno(mi.ano)} style={{border:"1px solid "+(ano===mi.ano?mi.cor:C.border),background:ano===mi.ano?mi.cor+"18":C.bg2,color:ano===mi.ano?mi.cor:C.text2,borderRadius:2,padding:"5px 8px",cursor:"pointer",fontFamily:F.mono,fontSize:9,transition:"all 0.12s",WebkitTapHighlightColor:"transparent"}}>
-                  {mi.ano}
-                </button>
-              ))}
-            </div>
-          </div>
-
+          <button onClick={()=>togCol("cfg")} style={{border:"1px solid "+(showCfg?C.brand:C.border),background:showCfg?C.brand+"18":C.bg2,color:showCfg?C.brand:C.text2,borderRadius:2,padding:"8px 12px",cursor:"pointer",fontFamily:F.sans,fontSize:10,fontWeight:500,whiteSpace:"nowrap",minHeight:44,WebkitTapHighlightColor:"transparent"}}>
+            ⚙ Mix {mixTot===100?"✓":mixTot+"%"}
+          </button>
         </div>
+
+        {/* Linha: Ano simulado — sempre visível */}
+        <div style={{padding:"0 16px 10px",display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+          <span style={{fontFamily:F.sans,fontSize:9,color:C.text3,textTransform:"uppercase",letterSpacing:0.5,marginRight:2}}>Ano</span>
+          {MILES.map(mi=>(
+            <button key={mi.ano} onClick={()=>setAno(mi.ano)} style={{border:"1px solid "+(ano===mi.ano?mi.cor:C.border),background:ano===mi.ano?mi.cor+"18":C.bg2,color:ano===mi.ano?mi.cor:C.text2,borderRadius:2,padding:"3px 7px",cursor:"pointer",fontFamily:F.mono,fontSize:9,fontWeight:ano===mi.ano?700:400,WebkitTapHighlightColor:"transparent"}}>
+              {mi.ano}
+            </button>
+          ))}
+        </div>
+
+        {/* Painel configurações — colapsável */}
+        {showCfg && (
+          <div style={{padding:"0 16px 14px",display:"flex",gap:16,flexWrap:"wrap",borderTop:"1px solid "+C.border+"88"}}>
+
+            {/* Mix PF / PJSN / PJN */}
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end",paddingTop:12}}>
+              <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,width:"100%",textTransform:"uppercase",letterSpacing:0.5,marginBottom:2}}>Mix de regime dos terceiros</div>
+              <div style={{width:90}}><NInput label="% PF (autônomo)" raw={rA} setRaw={setRA} onBlur={cA} suffix="%"/></div>
+              <div style={{width:90}}><NInput label="% PJSN" raw={rS} setRaw={setRS} onBlur={cS} suffix="%"/></div>
+              <div style={{width:90}}><NInput label="% PJN" raw={rL} setRaw={setRL} onBlur={cL} suffix="%"/></div>
+              <div style={{paddingBottom:6}}>
+                <div style={{fontFamily:F.mono,fontSize:12,fontWeight:700,color:mixColor}}>{mixTot}%{mixTot===100?" ✓":""}</div>
+                <div style={{fontFamily:F.sans,fontSize:8,color:C.text3}}>total</div>
+              </div>
+            </div>
+
+            {/* Regime empresa */}
+            <div style={{paddingTop:12}}>
+              <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginBottom:6,textTransform:"uppercase",letterSpacing:0.5}}>Regime da empresa</div>
+              <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                {[{r:"Lucro Real",l:"LR — 9,25%"},{r:"Lucro Presumido",l:"LP — 3,65%"},{r:"Simples Nacional",l:"SN — 3,65%"}].map(({r,l})=>(
+                  <button key={r} onClick={()=>setRegime(r)} style={{border:"1px solid "+(regime===r?C.brand:C.border),background:regime===r?C.brand+"18":C.bg2,color:regime===r?C.brand:C.text2,borderRadius:2,padding:"3px 8px",cursor:"pointer",fontFamily:F.sans,fontSize:9,WebkitTapHighlightColor:"transparent"}}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Regime PJN terceiros */}
+            <div style={{paddingTop:12}}>
+              <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginBottom:6,textTransform:"uppercase",letterSpacing:0.5}}>Regime PJN (terceiros)</div>
+              <div style={{display:"flex",gap:4}}>
+                {[{r:"Lucro Real",l:"LR — CBS 9,3%"},{r:"Lucro Presumido",l:"LP — CBS 9,25%"}].map(({r,l})=>(
+                  <button key={r} onClick={()=>setRegimeLucroTerceiros(r)} style={{border:"1px solid "+(regimeLucroTerceiros===r?C.brand:C.border),background:regimeLucroTerceiros===r?C.brand+"18":C.bg2,color:regimeLucroTerceiros===r?C.brand:C.text2,borderRadius:2,padding:"3px 8px",cursor:"pointer",fontFamily:F.sans,fontSize:9,WebkitTapHighlightColor:"transparent"}}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+
+          </div>
+        )}
       </div>
 
-      {/* ── CONTEÚDO: Duas colunas de cálculo ── */}
-      <div style={{display:"grid",gridTemplateColumns:isMob?"1fr":"1fr 1fr",flex:isMob?undefined:1,overflow:isMob?"visible":"hidden"}}>
+      {/* ── TABS mobile ── */}
+      {isMob && (
+        <div style={{display:"flex",background:C.bg1,borderBottom:"2px solid "+C.border,flexShrink:0}}>
+          {[{k:"pis",label:"PIS / COFINS",cor:C.text},{k:"cbs",label:"CBS"+(m.ibs>0?" + IBS":"")+" "+m.ano,cor:m.cor}].map(tab=>(
+            <button key={tab.k} onClick={()=>setSubTab(tab.k)} style={{flex:1,padding:"12px 8px",border:"none",borderBottom:"3px solid "+(subTab===tab.k?tab.cor:"transparent"),background:"transparent",color:subTab===tab.k?tab.cor:C.text3,fontFamily:F.sans,fontSize:11,fontWeight:subTab===tab.k?700:400,cursor:"pointer",WebkitTapHighlightColor:"transparent",transition:"all 0.15s"}}>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
 
-        {/* ════ ESQUERDA: PIS/COFINS ════ */}
-        <div style={{borderRight:"2px solid "+C.border,padding:"24px",overflowY:isMob?"visible":"auto",background:C.bg1}}>
+      {/* ── CONTEÚDO ── */}
+      <div style={{display:"grid",gridTemplateColumns:isMob?"1fr":"1fr 1fr",flex:isMob?undefined:1,overflow:isMob?"visible":"hidden",minHeight:isMob?"auto":"0"}}>
+
+        {/* ════ PIS/COFINS ════ */}
+        {(!isMob||subTab!=="cbs") && (
+        <div style={{borderRight:isMob?"none":"2px solid "+C.border,padding:isMob?"20px 16px":"28px",overflowY:isMob?"visible":"auto",background:C.bg1}}>
 
           <div style={{marginBottom:20,paddingBottom:12,borderBottom:"2px solid "+C.border}}>
-            <div style={{fontFamily:F.sans,fontSize:18,fontWeight:800,color:C.text,letterSpacing:-0.5}}>PIS / COFINS</div>
+            <div style={{fontFamily:F.sans,fontSize:isMob?20:18,fontWeight:800,color:C.text,letterSpacing:-0.5}}>PIS / COFINS</div>
             <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4}}>
-              <span style={{fontFamily:F.mono,fontSize:13,color:C.text2,fontWeight:600}}>Alíquota: {aliqPIS}%</span>
+              <span style={{fontFamily:F.mono,fontSize:12,color:C.text2,fontWeight:600}}>Alíquota: {aliqPIS}%</span>
               <Bdg color={C.text3}>{regime}</Bdg>
             </div>
           </div>
 
+          {/* Débito */}
           <div style={{marginBottom:4,fontFamily:F.sans,fontSize:9,fontWeight:600,color:C.text3,textTransform:"uppercase",letterSpacing:0.6}}>Débito</div>
           {[
             {label:"Faturamento bruto", val:BRL_(frete), dim:true},
-            ...(pctExportacao>0?[{label:"(-) Exportação imune "+pctExportacao+"%", val:"("+BRL_(frete*pctExportacao/100)+")", color:C.green}]:[]),
+            ...(pctExportacao>0?[{label:"(-) Exportação "+pctExportacao+"%", val:"("+BRL_(frete*pctExportacao/100)+")", color:C.green}]:[]),
             {label:"Base tributável", val:BRL_(baseExec), bold:true},
             {label:"× Alíquota "+aliqPIS+"%", val:"↓", dim:true},
           ].map((row,i)=>(
-            <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid "+C.border+"55"}}>
-              <span style={{fontFamily:F.sans,fontSize:10,color:row.color||(row.dim?C.text3:C.text),fontWeight:row.bold?600:400}}>{row.label}</span>
-              <span style={{fontFamily:F.mono,fontSize:10,color:row.color||(row.bold?C.text:C.text2)}}>{row.val}</span>
+            <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid "+C.border+"55"}}>
+              <span style={{fontFamily:F.sans,fontSize:11,color:row.color||(row.dim?C.text3:C.text),fontWeight:row.bold?600:400}}>{row.label}</span>
+              <span style={{fontFamily:F.mono,fontSize:11,color:row.color||(row.bold?C.text:C.text2)}}>{row.val}</span>
             </div>
           ))}
-          <div style={{marginTop:8,marginBottom:20,padding:"10px 14px",background:C.redLt,border:"1px solid "+C.red+"44",borderLeft:"4px solid "+C.red,borderRadius:3,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <span style={{fontFamily:F.sans,fontSize:11,color:C.red,fontWeight:600}}>DÉBITO PIS/COFINS</span>
-            <span style={{fontFamily:F.mono,fontSize:20,color:C.red,fontWeight:800}}>{BRL_(pisDeb_)}</span>
+          <div style={{marginTop:10,marginBottom:24,padding:"12px 14px",background:C.redLt,border:"1px solid "+C.red+"44",borderLeft:"4px solid "+C.red,borderRadius:3,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontFamily:F.sans,fontSize:12,color:C.red,fontWeight:600}}>DÉBITO PIS/COFINS</span>
+            <span style={{fontFamily:F.mono,fontSize:isMob?22:20,color:C.red,fontWeight:800}}>{BRL_(pisDeb_)}</span>
           </div>
 
+          {/* Créditos */}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:10}}>
             <span style={{fontFamily:F.sans,fontSize:9,fontWeight:600,color:C.text3,textTransform:"uppercase",letterSpacing:0.6}}>Créditos</span>
             <span style={{fontFamily:F.mono,fontSize:9,color:C.text3}}>base: {BRL_(baseTerN)}</span>
           </div>
 
-          <div style={{marginBottom:6,padding:"10px 12px",background:C.bg2,border:"1px solid "+C.border,borderLeft:"3px solid "+C.amber,borderRadius:3}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-              <span style={{fontFamily:F.sans,fontSize:11,color:C.text,fontWeight:600}}>PF · Autônomo <span style={{color:C.amber}}>{mixAutonomo}%</span></span>
-              <span style={{fontFamily:F.mono,fontSize:15,color:C.green,fontWeight:700}}>{BRL_(pisCrPF_)}</span>
+          {[
+            {label:"PF · Autônomo", pct:mixAutonomo, val:pisCrPF_, formula:BRL_(bPF_)+" × 75% = "+BRL_(bPF_*0.75)+" → × "+aliqPIS+"%", cor:C.amber},
+            {label:"PJSN · Simples Nacional", pct:mixSN, val:pisCrSN_, formula:BRL_(bSN_)+" × 75% = "+BRL_(bSN_*0.75)+" → × "+aliqPIS+"%", cor:C.blue},
+            {label:"PJN · LP / LR", pct:mixLucro, val:pisCrPJN_, formula:BRL_(bPJN_)+" × 100% → × "+aliqPIS+"%", cor:C.green},
+          ].map((row,i)=>(
+            <div key={i} style={{marginBottom:6,padding:"10px 12px",background:C.bg2,border:"1px solid "+C.border,borderLeft:"3px solid "+row.cor,borderRadius:3}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                <span style={{fontFamily:F.sans,fontSize:11,color:C.text,fontWeight:600}}>{row.label} <span style={{color:row.cor,fontWeight:700}}>{row.pct}%</span></span>
+                <span style={{fontFamily:F.mono,fontSize:isMob?16:15,color:C.green,fontWeight:700}}>{BRL_(row.val)}</span>
+              </div>
+              <div style={{fontFamily:F.mono,fontSize:9,color:C.text3}}>{row.formula}</div>
             </div>
-            <div style={{fontFamily:F.mono,fontSize:9,color:C.text3}}>{BRL_(bPF_)} × 75% × {aliqPIS}%</div>
+          ))}
+
+          <div style={{marginBottom:24,padding:"12px 14px",background:C.greenLt,border:"1px solid "+C.green+"44",borderRadius:3,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontFamily:F.sans,fontSize:12,color:C.green,fontWeight:600}}>Total créditos</span>
+            <span style={{fontFamily:F.mono,fontSize:isMob?20:18,color:C.green,fontWeight:700}}>{BRL_(pisCrTot_)}</span>
           </div>
 
-          <div style={{marginBottom:6,padding:"10px 12px",background:C.bg2,border:"1px solid "+C.border,borderLeft:"3px solid "+C.blue,borderRadius:3}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-              <span style={{fontFamily:F.sans,fontSize:11,color:C.text,fontWeight:600}}>PJSN · Simples Nacional <span style={{color:C.blue}}>{mixSN}%</span></span>
-              <span style={{fontFamily:F.mono,fontSize:15,color:C.green,fontWeight:700}}>{BRL_(pisCrSN_)}</span>
-            </div>
-            <div style={{fontFamily:F.mono,fontSize:9,color:C.text3}}>{BRL_(bSN_)} × 75% × {aliqPIS}%</div>
-          </div>
-
-          <div style={{marginBottom:10,padding:"10px 12px",background:C.bg2,border:"1px solid "+C.border,borderLeft:"3px solid "+C.green,borderRadius:3}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-              <span style={{fontFamily:F.sans,fontSize:11,color:C.text,fontWeight:600}}>PJN · LP / LR <span style={{color:C.green}}>{mixLucro}%</span></span>
-              <span style={{fontFamily:F.mono,fontSize:15,color:C.green,fontWeight:700}}>{BRL_(pisCrPJN_)}</span>
-            </div>
-            <div style={{fontFamily:F.mono,fontSize:9,color:C.text3}}>{BRL_(bPJN_)} × 100% × {aliqPIS}%</div>
-          </div>
-
-          <div style={{marginBottom:20,padding:"10px 14px",background:C.greenLt,border:"1px solid "+C.green+"44",borderRadius:3,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <span style={{fontFamily:F.sans,fontSize:11,color:C.green,fontWeight:600}}>Total créditos</span>
-            <span style={{fontFamily:F.mono,fontSize:18,color:C.green,fontWeight:700}}>{BRL_(pisCrTot_)}</span>
-          </div>
-
+          {/* Resultado */}
           <div style={{padding:"16px",background:pisCusto_<=0?C.greenLt:C.redLt,border:"2px solid "+(pisCusto_<=0?C.green:C.red),borderRadius:4}}>
-            <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:10}}>
+            <div style={{display:"flex",flexDirection:"column",gap:5,marginBottom:12}}>
               <div style={{display:"flex",justifyContent:"space-between"}}>
-                <span style={{fontFamily:F.sans,fontSize:10,color:C.text2}}>Crédito</span>
-                <span style={{fontFamily:F.mono,fontSize:11,color:C.green}}>{"+ "+BRL_(pisCrTot_)}</span>
+                <span style={{fontFamily:F.sans,fontSize:11,color:C.text2}}>Crédito</span>
+                <span style={{fontFamily:F.mono,fontSize:12,color:C.green,fontWeight:500}}>{"+ "+BRL_(pisCrTot_)}</span>
               </div>
               <div style={{display:"flex",justifyContent:"space-between"}}>
-                <span style={{fontFamily:F.sans,fontSize:10,color:C.text2}}>Débito</span>
-                <span style={{fontFamily:F.mono,fontSize:11,color:C.red}}>{"- "+BRL_(pisDeb_)}</span>
+                <span style={{fontFamily:F.sans,fontSize:11,color:C.text2}}>Débito</span>
+                <span style={{fontFamily:F.mono,fontSize:12,color:C.red,fontWeight:500}}>{"- "+BRL_(pisDeb_)}</span>
               </div>
             </div>
-            <div style={{borderTop:"1px solid "+(pisCusto_<=0?C.green+"44":C.red+"44"),paddingTop:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{borderTop:"1px solid "+(pisCusto_<=0?C.green+"44":C.red+"44"),paddingTop:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <span style={{fontFamily:F.sans,fontSize:13,color:pisCusto_<=0?C.green:C.red,fontWeight:700,textTransform:"uppercase",letterSpacing:0.5}}>
                 {"→ "+(pisCusto_<=0?"CREDOR":"DEVEDOR")}
               </span>
-              <span style={{fontFamily:F.mono,fontSize:24,color:pisCusto_<=0?C.green:C.red,fontWeight:800}}>
+              <span style={{fontFamily:F.mono,fontSize:isMob?28:24,color:pisCusto_<=0?C.green:C.red,fontWeight:800}}>
                 {BRL_(Math.abs(pisCusto_))}
               </span>
             </div>
           </div>
 
         </div>
+        )}
 
-        {/* ════ DIREITA: CBS + IBS ════ */}
-        <div style={{padding:"24px",overflowY:isMob?"visible":"auto",background:C.bg1}}>
+        {/* ════ CBS + IBS ════ */}
+        {(!isMob||subTab==="cbs") && (
+        <div style={{padding:isMob?"20px 16px":"28px",overflowY:isMob?"visible":"auto",background:C.bg1}}>
 
           <div style={{marginBottom:20,paddingBottom:12,borderBottom:"2px solid "+m.cor}}>
-            <div style={{fontFamily:F.sans,fontSize:18,fontWeight:800,color:m.cor,letterSpacing:-0.5}}>
+            <div style={{fontFamily:F.sans,fontSize:isMob?20:18,fontWeight:800,color:m.cor,letterSpacing:-0.5}}>
               {"CBS "+m.cbs+"%"+(m.ibs>0?" + IBS "+m.ibs+"%":"")}
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4}}>
-              <span style={{fontFamily:F.mono,fontSize:13,color:C.text2,fontWeight:600}}>Total: {m.total}%</span>
+              <span style={{fontFamily:F.mono,fontSize:12,color:C.text2,fontWeight:600}}>Total: {m.total}%</span>
               <Bdg color={m.cor}>{m.ano+" — "+m.label}</Bdg>
             </div>
           </div>
 
+          {/* Débito CBS */}
           <div style={{marginBottom:4,fontFamily:F.sans,fontSize:9,fontWeight:600,color:C.text3,textTransform:"uppercase",letterSpacing:0.6}}>Débito</div>
           {[
             {label:"Faturamento bruto", val:BRL_(frete), dim:true},
-            ...(pctExportacao>0?[{label:"(-) Exportação imune "+pctExportacao+"%", val:"("+BRL_(frete*pctExportacao/100)+")", color:C.green}]:[]),
+            ...(pctExportacao>0?[{label:"(-) Exportação "+pctExportacao+"%", val:"("+BRL_(frete*pctExportacao/100)+")", color:C.green}]:[]),
             {label:"Base tributável", val:BRL_(baseExec), bold:true},
             {label:"× CBS "+m.cbs+"%", val:BRL_(cbsDeb_), red:true},
             ...(m.ibs>0?[{label:"× IBS "+m.ibs+"%", val:BRL_(ibsDeb_), red:true}]:[]),
           ].map((row,i)=>(
-            <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid "+C.border+"55"}}>
-              <span style={{fontFamily:F.sans,fontSize:10,color:row.color||(row.dim?C.text3:C.text),fontWeight:row.bold?600:400}}>{row.label}</span>
-              <span style={{fontFamily:F.mono,fontSize:10,color:row.color||(row.red?C.red:row.bold?C.text:C.text2)}}>{row.val}</span>
+            <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid "+C.border+"55"}}>
+              <span style={{fontFamily:F.sans,fontSize:11,color:row.color||(row.dim?C.text3:C.text),fontWeight:row.bold?600:400}}>{row.label}</span>
+              <span style={{fontFamily:F.mono,fontSize:11,color:row.color||(row.red?C.red:row.bold?C.text:C.text2)}}>{row.val}</span>
             </div>
           ))}
-          <div style={{marginTop:8,marginBottom:20,padding:"10px 14px",background:C.redLt,border:"1px solid "+C.red+"44",borderLeft:"4px solid "+C.red,borderRadius:3,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <span style={{fontFamily:F.sans,fontSize:11,color:C.red,fontWeight:600}}>{"DÉBITO "+(m.ibs>0?"CBS + IBS":"CBS")}</span>
-            <span style={{fontFamily:F.mono,fontSize:20,color:C.red,fontWeight:800}}>{BRL_(cbsDeb_+ibsDeb_)}</span>
+          <div style={{marginTop:10,marginBottom:24,padding:"12px 14px",background:C.redLt,border:"1px solid "+C.red+"44",borderLeft:"4px solid "+C.red,borderRadius:3,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontFamily:F.sans,fontSize:12,color:C.red,fontWeight:600}}>{"DÉBITO "+(m.ibs>0?"CBS + IBS":"CBS")}</span>
+            <span style={{fontFamily:F.mono,fontSize:isMob?22:20,color:C.red,fontWeight:800}}>{BRL_(cbsDeb_+ibsDeb_)}</span>
           </div>
 
+          {/* Créditos CBS */}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:10}}>
             <span style={{fontFamily:F.sans,fontSize:9,fontWeight:600,color:C.text3,textTransform:"uppercase",letterSpacing:0.6}}>{"Créditos CBS"+(m.ibs>0?" + IBS":"")}</span>
-            <span style={{fontFamily:F.mono,fontSize:9,color:C.text3}}>base: {BRL_(baseTerN)}</span>
+            <span style={{fontFamily:F.mono,fontSize:9,color:C.text3}}>base PF: {BRL_(baseTerN)} · base SN/PJN: {BRL_(baseTerTax)}</span>
           </div>
 
-          <div style={{marginBottom:6,padding:"10px 12px",background:C.bg2,border:"1px solid "+C.border,borderLeft:"3px solid "+C.amber,borderRadius:3}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-              <span style={{fontFamily:F.sans,fontSize:11,color:C.text,fontWeight:600}}>PF · Autônomo <span style={{color:C.amber}}>{mixAutonomo}%</span></span>
-              <span style={{fontFamily:F.mono,fontSize:15,color:C.green,fontWeight:700}}>{BRL_(cbsCrPF_)}</span>
+          {[
+            {label:"PF · Autônomo", pct:mixAutonomo, val:cbsCrPF_, formula:BRL_(bPF_)+" × 20% = "+BRL_(bPF_*0.2)+" → × "+m.cbs+"%", cor:C.amber},
+            {label:"PJSN · Simples Nacional", pct:mixSN, val:cbsCrSN_, formula:BRL_(bSN_cbs)+" × "+CBS_CRED.simplesNacional+"%", cor:C.blue},
+            {label:"PJN · "+(regimeLucroTerceiros==="Lucro Real"?"Lucro Real":"Lucro Presumido"), pct:mixLucro, val:cbsCrPJN_, formula:BRL_(bPJN_cbs)+" × "+lucroRateTerceiros+"%", cor:C.green},
+          ].map((row,i)=>(
+            <div key={i} style={{marginBottom:6,padding:"10px 12px",background:C.bg2,border:"1px solid "+C.border,borderLeft:"3px solid "+row.cor,borderRadius:3}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                <span style={{fontFamily:F.sans,fontSize:11,color:C.text,fontWeight:600}}>{row.label} <span style={{color:row.cor,fontWeight:700}}>{row.pct}%</span></span>
+                <span style={{fontFamily:F.mono,fontSize:isMob?16:15,color:C.green,fontWeight:700}}>{BRL_(row.val)}</span>
+              </div>
+              <div style={{fontFamily:F.mono,fontSize:9,color:C.text3}}>{row.formula}</div>
             </div>
-            <div style={{fontFamily:F.mono,fontSize:9,color:C.text3}}>{BRL_(bPF_)} × {CBS_CRED.autonomo}%</div>
-          </div>
-
-          <div style={{marginBottom:6,padding:"10px 12px",background:C.bg2,border:"1px solid "+C.border,borderLeft:"3px solid "+C.blue,borderRadius:3}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-              <span style={{fontFamily:F.sans,fontSize:11,color:C.text,fontWeight:600}}>PJSN · Simples Nacional <span style={{color:C.blue}}>{mixSN}%</span></span>
-              <span style={{fontFamily:F.mono,fontSize:15,color:C.green,fontWeight:700}}>{BRL_(cbsCrSN_)}</span>
-            </div>
-            <div style={{fontFamily:F.mono,fontSize:9,color:C.text3}}>{BRL_(bSN_)} × {CBS_CRED.simplesNacional}%</div>
-          </div>
-
-          <div style={{marginBottom:6,padding:"10px 12px",background:C.bg2,border:"1px solid "+C.border,borderLeft:"3px solid "+C.green,borderRadius:3}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-              <span style={{fontFamily:F.sans,fontSize:11,color:C.text,fontWeight:600}}>PJN · {regimeLucroTerceiros==="Lucro Real"?"Lucro Real":"Lucro Presumido"} <span style={{color:C.green}}>{mixLucro}%</span></span>
-              <span style={{fontFamily:F.mono,fontSize:15,color:C.green,fontWeight:700}}>{BRL_(cbsCrPJN_)}</span>
-            </div>
-            <div style={{fontFamily:F.mono,fontSize:9,color:C.text3}}>{BRL_(bPJN_)} × {lucroRateTerceiros}%</div>
-          </div>
+          ))}
 
           {m.ibs>0 && (
-            <div style={{marginBottom:6,padding:"8px 12px",background:C.bg2,border:"1px solid "+C.border,borderLeft:"3px solid "+C.purple,borderRadius:3,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <span style={{fontFamily:F.sans,fontSize:10,color:C.text2}}>Créditos IBS {m.ibs}% — proporcional ao CBS</span>
-              <span style={{fontFamily:F.mono,fontSize:13,color:C.purple,fontWeight:600}}>{BRL_(ibsCrTot_)}</span>
+            <div style={{marginBottom:6,padding:"10px 12px",background:C.bg2,border:"1px solid "+C.border,borderLeft:"3px solid "+C.purple,borderRadius:3,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontFamily:F.sans,fontSize:11,color:C.text2}}>Créditos IBS {m.ibs}%</span>
+              <span style={{fontFamily:F.mono,fontSize:isMob?16:14,color:C.purple,fontWeight:600}}>{BRL_(ibsCrTot_)}</span>
             </div>
           )}
 
-          <div style={{marginBottom:20,padding:"10px 14px",background:C.greenLt,border:"1px solid "+C.green+"44",borderRadius:3,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <span style={{fontFamily:F.sans,fontSize:11,color:C.green,fontWeight:600}}>Total créditos</span>
-            <span style={{fontFamily:F.mono,fontSize:18,color:C.green,fontWeight:700}}>{BRL_(cbsCrTot_+ibsCrTot_)}</span>
+          <div style={{marginBottom:24,padding:"12px 14px",background:C.greenLt,border:"1px solid "+C.green+"44",borderRadius:3,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontFamily:F.sans,fontSize:12,color:C.green,fontWeight:600}}>Total créditos</span>
+            <span style={{fontFamily:F.mono,fontSize:isMob?20:18,color:C.green,fontWeight:700}}>{BRL_(cbsCrTot_+ibsCrTot_)}</span>
           </div>
 
+          {/* Resultado CBS */}
           <div style={{padding:"16px",background:cbsCusto_<=0?C.greenLt:C.redLt,border:"2px solid "+(cbsCusto_<=0?C.green:C.red),borderRadius:4,marginBottom:16}}>
-            <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:10}}>
+            <div style={{display:"flex",flexDirection:"column",gap:5,marginBottom:12}}>
               <div style={{display:"flex",justifyContent:"space-between"}}>
-                <span style={{fontFamily:F.sans,fontSize:10,color:C.text2}}>Créditos</span>
-                <span style={{fontFamily:F.mono,fontSize:11,color:C.green}}>{"+ "+BRL_(cbsCrTot_+ibsCrTot_)}</span>
+                <span style={{fontFamily:F.sans,fontSize:11,color:C.text2}}>Créditos</span>
+                <span style={{fontFamily:F.mono,fontSize:12,color:C.green,fontWeight:500}}>{"+ "+BRL_(cbsCrTot_+ibsCrTot_)}</span>
               </div>
               <div style={{display:"flex",justifyContent:"space-between"}}>
-                <span style={{fontFamily:F.sans,fontSize:10,color:C.text2}}>Débito</span>
-                <span style={{fontFamily:F.mono,fontSize:11,color:C.red}}>{"- "+BRL_(cbsDeb_+ibsDeb_)}</span>
+                <span style={{fontFamily:F.sans,fontSize:11,color:C.text2}}>Débito</span>
+                <span style={{fontFamily:F.mono,fontSize:12,color:C.red,fontWeight:500}}>{"- "+BRL_(cbsDeb_+ibsDeb_)}</span>
               </div>
             </div>
-            <div style={{borderTop:"1px solid "+(cbsCusto_<=0?C.green+"44":C.red+"44"),paddingTop:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{borderTop:"1px solid "+(cbsCusto_<=0?C.green+"44":C.red+"44"),paddingTop:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <span style={{fontFamily:F.sans,fontSize:13,color:cbsCusto_<=0?C.green:C.red,fontWeight:700,textTransform:"uppercase",letterSpacing:0.5}}>
                 {"→ "+(cbsCusto_<=0?"CREDOR":"CBS A PAGAR")}
               </span>
-              <span style={{fontFamily:F.mono,fontSize:24,color:cbsCusto_<=0?C.green:C.red,fontWeight:800}}>
+              <span style={{fontFamily:F.mono,fontSize:isMob?28:24,color:cbsCusto_<=0?C.green:C.red,fontWeight:800}}>
                 {BRL_(Math.abs(cbsCusto_))}
               </span>
             </div>
           </div>
 
+          {/* Comparativo */}
           {(()=>{
             const diff=cbsCusto_-pisCusto_;
             const corD=diff>0?C.red:C.green;
@@ -1616,25 +1525,27 @@ function Oracle(){
                 <div style={{fontFamily:F.sans,fontSize:9,color:C.text3,textTransform:"uppercase",letterSpacing:0.6,marginBottom:10}}>Comparativo — Hoje vs Reforma</div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
                   <div style={{padding:"8px 10px",background:C.bg1,border:"1px solid "+C.border,borderRadius:2}}>
-                    <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginBottom:3}}>Hoje — PIS/COFINS {aliqPIS}%</div>
-                    <div style={{fontFamily:F.mono,fontSize:14,color:pisCusto_<=0?C.green:C.red,fontWeight:700}}>{BRL_(Math.abs(pisCusto_))}</div>
-                    <div style={{fontFamily:F.sans,fontSize:8,color:pisCusto_<=0?C.green:C.red,marginTop:2}}>{pisCusto_<=0?"credor":"devedor"}</div>
+                    <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginBottom:3}}>Hoje — PIS/COFINS</div>
+                    <div style={{fontFamily:F.mono,fontSize:isMob?16:14,color:pisCusto_<=0?C.green:C.red,fontWeight:700}}>{BRL_(Math.abs(pisCusto_))}</div>
+                    <div style={{fontFamily:F.sans,fontSize:9,color:pisCusto_<=0?C.green:C.red,marginTop:2,fontWeight:600}}>{pisCusto_<=0?"credor":"devedor"}</div>
                   </div>
                   <div style={{padding:"8px 10px",background:C.bg1,border:"1px solid "+m.cor+"44",borderRadius:2}}>
-                    <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginBottom:3}}>{"Reforma "+m.ano+" — CBS "+(m.ibs>0?"+ IBS":"")}</div>
-                    <div style={{fontFamily:F.mono,fontSize:14,color:cbsCusto_<=0?C.green:C.red,fontWeight:700}}>{BRL_(Math.abs(cbsCusto_))}</div>
-                    <div style={{fontFamily:F.sans,fontSize:8,color:cbsCusto_<=0?C.green:C.red,marginTop:2}}>{cbsCusto_<=0?"credor":"a pagar"}</div>
+                    <div style={{fontFamily:F.sans,fontSize:8,color:C.text3,marginBottom:3}}>{"Reforma "+m.ano}</div>
+                    <div style={{fontFamily:F.mono,fontSize:isMob?16:14,color:cbsCusto_<=0?C.green:C.red,fontWeight:700}}>{BRL_(Math.abs(cbsCusto_))}</div>
+                    <div style={{fontFamily:F.sans,fontSize:9,color:cbsCusto_<=0?C.green:C.red,marginTop:2,fontWeight:600}}>{cbsCusto_<=0?"credor":"a pagar"}</div>
                   </div>
                 </div>
-                <div style={{padding:"10px 14px",background:corD+"18",border:"1px solid "+corD+"44",borderRadius:3,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div style={{padding:"12px 14px",background:corD+"18",border:"1px solid "+corD+"44",borderRadius:3,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                   <span style={{fontFamily:F.sans,fontSize:11,color:corD,fontWeight:600}}>{diff>0?"▲ Custo adicional":"▼ Economia"} vs hoje</span>
-                  <span style={{fontFamily:F.mono,fontSize:16,color:corD,fontWeight:800}}>{(diff>0?"+":"")+BRL_(diff)}</span>
+                  <span style={{fontFamily:F.mono,fontSize:isMob?18:16,color:corD,fontWeight:800}}>{(diff>0?"+":"")+BRL_(diff)}</span>
                 </div>
               </div>
             );
           })()}
 
         </div>
+        )}
+
       </div>
     </div>
   );
@@ -1649,8 +1560,8 @@ const TABS=[{id:"painel",label:"Painel"},{id:"oracle",label:"Simulador"}];
 export default function App(){
   const [tab,setTab]=useState("oracle");
 
-  const [frete,setFrete]=useState(50000);
-  const [frota,setFrota]=useState(20);
+  const [frete,setFrete]=useState(0);
+  const [frota,setFrota]=useState(0);
   const [regime,setRegime]=useState("Lucro Presumido");
   const [ano,setAno]=useState(2027);
   const [pctExportacao,setPctExportacao]=useState(0);
@@ -1688,10 +1599,10 @@ export default function App(){
   // Terceiros
   const [usaTerceiros,setUsaTerceiros]=useState(true);
   const [pctTerceiros,setPctTerceiros]=useState(100);
-  const [mixAutonomo,setMixAutonomo]=useState(20);
-  const [mixSN,setMixSN]=useState(60);
-  const [mixLucro,setMixLucro]=useState(20);
-  const [margemTerceiros,setMargemTerceiros]=useState(25);
+  const [mixAutonomo,setMixAutonomo]=useState(0);
+  const [mixSN,setMixSN]=useState(0);
+  const [mixLucro,setMixLucro]=useState(0);
+  const [margemTerceiros,setMargemTerceiros]=useState(0);
   const [regimeLucroTerceiros,setRegimeLucroTerceiros]=useState("Lucro Real");
 
   // Agregados
