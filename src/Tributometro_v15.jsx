@@ -992,8 +992,7 @@ function Oracle(){
     sf("normal"); doc.setFontSize(8.5); doc.setTextColor(...OR);
     doc.text("Reforma Tribut\u00e1ria \u00b7 Terceiriza\u00e7\u00e3o de Fretes \u00b7 LC\u00a0214/2025",mg+22,19);
     doc.setFontSize(6.5); doc.setTextColor(...LG);
-    doc.text("Gerado em "+new Date().toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"})
-      +"  \u00b7  Simula\u00e7\u00e3o: "+m.ano+" \u2014 "+m.label,mg+22,24.5);
+    doc.text("Gerado em "+new Date().toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"})+" | Simulacao: "+m.ano+" - "+m.label,mg+22,24.5);
     doc.setDrawColor(...BD); doc.setLineWidth(0.3); doc.line(mg,27,W-mg,27);
 
     // ── PARÂMETROS ──
@@ -1011,13 +1010,12 @@ function Oracle(){
       doc.text(p.v,px,y+13);
     });
     sf("normal"); doc.setFontSize(6.5); doc.setTextColor(...GR);
-    doc.text("Mix:  PF "+mixAutonomo+"%  \u00b7  PJSN "+mixSN+"%  \u00b7  PJN "+mixLucro+"%"
-      +(mixLucro>0?"  (\u2192 "+regimeLucroTerceiros+")":""),mg+4,y+19.5);
+    doc.text("Mix prestadores:  PF "+mixAutonomo+"% | PJSN "+mixSN+"% | PJN "+mixLucro+"%"+(mixLucro>0?" ("+regimeLucroTerceiros+")":""),mg+4,y+19.5);
     y+=25;
 
     // ── DIAGNÓSTICO: HOJE vs REFORMA ──
     sf("bold"); doc.setFontSize(6.5); doc.setTextColor(...GR);
-    doc.text("DIAGN\u00d3STICO \u2014 RESULTADO MENSAL ESTIMADO",mg,y+5);
+    doc.text("DIAGNOSTICO - RESULTADO MENSAL ESTIMADO",mg,y+5);
     doc.setDrawColor(...BD); doc.setLineWidth(0.15); doc.line(mg,y+7,W-mg,y+7);
     y+=10;
 
@@ -1029,7 +1027,7 @@ function Oracle(){
     doc.rect(mg,y,dw,38,"FD");
     doc.setFillColor(...pisCr); doc.rect(mg,y,dw,5,"F");
     sf("bold"); doc.setFontSize(7); doc.setTextColor(255,255,255);
-    doc.text("HOJE \u2014 PIS/COFINS "+aliqPIS+"%",mg+4,y+3.5);
+    doc.text("HOJE - PIS/COFINS "+aliqPIS+"%",mg+4,y+3.5);
     sf("normal"); doc.setFontSize(7.5); doc.setTextColor(...GR);
     doc.text("Custo tribut\u00e1rio mensal estimado",mg+4,y+12);
     sf("bold"); doc.setFontSize(20); doc.setTextColor(...pisCr);
@@ -1047,7 +1045,7 @@ function Oracle(){
     doc.rect(rx,y,dw,38,"FD");
     doc.setFillColor(...cbsCr); doc.rect(rx,y,dw,5,"F");
     sf("bold"); doc.setFontSize(7); doc.setTextColor(255,255,255);
-    doc.text("REFORMA "+m.ano+" \u2014 CBS"+(m.ibs>0?" + IBS":"")+" "+m.total+"%",rx+4,y+3.5);
+    doc.text("REFORMA "+m.ano+" - CBS"+(m.ibs>0?" + IBS":"")+" "+m.total+"%",rx+4,y+3.5);
     sf("normal"); doc.setFontSize(7.5); doc.setTextColor(...GR);
     doc.text("Custo tribut\u00e1rio mensal estimado",rx+4,y+12);
     sf("bold"); doc.setFontSize(20); doc.setTextColor(...cbsCr);
@@ -1063,63 +1061,66 @@ function Oracle(){
     doc.setFillColor(...(diff>0?[255,241,241]:[240,253,244]));
     doc.setDrawColor(...dCor); doc.setLineWidth(0.3); doc.rect(mg,y,cw,10,"FD");
     sf("bold"); doc.setFontSize(9); doc.setTextColor(...dCor);
-    const diffTxt=(diff>0?"\u25b2 Custo adicional de ":"\u25bc Economia de ")+BRL(Math.abs(diff))+"/m\u00eas com a reforma tribut\u00e1ria em "+m.ano;
+    const diffTxt=diff>0
+      ? "AUMENTO de "+BRL(Math.abs(diff))+"/mes com a Reforma Tributaria em "+m.ano
+      : diff<0
+        ? "REDUCAO de "+BRL(Math.abs(diff))+"/mes com a Reforma Tributaria em "+m.ano
+        : "Sem variacao de custo tributario em "+m.ano;
     doc.text(diffTxt,mg+cw/2,y+6.5,{align:"center"});
     y+=14;
 
     // ── ANÁLISE E RECOMENDAÇÕES (insights dinâmicos) ──
     sf("bold"); doc.setFontSize(6.5); doc.setTextColor(...GR);
-    doc.text("AN\u00c1LISE E RECOMENDA\u00c7\u00d5ES",mg,y+5);
+    doc.text("ANALISE E RECOMENDACOES",mg,y+5);
     doc.setDrawColor(...BD); doc.setLineWidth(0.15); doc.line(mg,y+7,W-mg,y+7);
     y+=10;
 
     const pctVar=pisCusto_!==0?Math.abs((cbsCusto_-pisCusto_)/Math.abs(pisCusto_)*100):0;
-    const mixN_=mixAutonomo+mixSN+mixLucro||1;
     const insights=[
       // resultado
       cbsCusto_<=0&&pisCusto_<=0 ? {
         tipo:cbsCusto_<pisCusto_?"pos":"alerta",
-        t:cbsCusto_<pisCusto_?"Posi\u00e7\u00e3o credora melhora na reforma":"Posi\u00e7\u00e3o credora reduz na reforma",
+        t:cbsCusto_<pisCusto_?"Posicao credora melhora com a reforma":"Posicao credora reduz com a reforma",
         d:cbsCusto_<pisCusto_?
-          "Hoje sua empresa \u00e9 credora de "+BRL(Math.abs(pisCusto_))+"/m\u00eas. Com a reforma em "+m.ano+", a posi\u00e7\u00e3o credora cresce para "+BRL(Math.abs(cbsCusto_))+" \u2014 ganho de "+BRL(Math.abs(cbsCusto_-pisCusto_))+"." :
-          "Hoje sua empresa \u00e9 credora de "+BRL(Math.abs(pisCusto_))+"/m\u00eas. Com a reforma em "+m.ano+", a posi\u00e7\u00e3o credora cai para "+BRL(Math.abs(cbsCusto_))+" \u2014 redu\u00e7\u00e3o de "+BRL(Math.abs(cbsCusto_-pisCusto_))+"."
+          "Hoje a empresa e credora de "+BRL(Math.abs(pisCusto_))+"/mes em PIS/COFINS. Com a CBS em "+m.ano+", o credito apurado sobe para "+BRL(Math.abs(cbsCusto_))+"/mes, gerando ganho de "+BRL(Math.abs(cbsCusto_-pisCusto_))+" no fluxo de caixa." :
+          "Hoje a empresa e credora de "+BRL(Math.abs(pisCusto_))+"/mes em PIS/COFINS. Com a CBS em "+m.ano+", o credito cai para "+BRL(Math.abs(cbsCusto_))+"/mes. Revisar o mix de prestadores pode compensar essa reducao."
       } : cbsCusto_<=0 ? {
         tipo:"pos",
-        t:"Reforma inverte posi\u00e7\u00e3o: empresa passa a ser CREDORA",
-        d:"Hoje paga "+BRL(Math.abs(pisCusto_))+"/m\u00eas de PIS/COFINS. Com a reforma em "+m.ano+", a posi\u00e7\u00e3o inverte: saldo CREDOR de "+BRL(Math.abs(cbsCusto_))+"/m\u00eas \u2014 melhora total de "+BRL(Math.abs(cbsCusto_-pisCusto_))+"."
+        t:"A reforma inverte a posicao: empresa passa a ser CREDORA de CBS",
+        d:"Hoje recolhe "+BRL(Math.abs(pisCusto_))+"/mes de PIS/COFINS. Com a entrada da CBS em "+m.ano+", os creditos superam os debitos: saldo CREDOR de "+BRL(Math.abs(cbsCusto_))+"/mes. Melhora total de "+BRL(Math.abs(cbsCusto_-pisCusto_))+" no resultado."
       } : (cbsCusto_-pisCusto_)<=0 ? {
         tipo:"pos",
-        t:"Reforma reduz a carga tribut\u00e1ria",
-        d:"Custo mensal cai de "+BRL(Math.abs(pisCusto_))+" para "+BRL(Math.abs(cbsCusto_))+" \u2014 redu\u00e7\u00e3o de "+BRL(Math.abs(cbsCusto_-pisCusto_))+"/m\u00eas. O cr\u00e9dito n\u00e3o-cumulativo beneficia sua opera\u00e7\u00e3o."
+        t:"A Reforma Tributaria reduz a carga tributaria desta operacao",
+        d:"O custo mensal cai de "+BRL(Math.abs(pisCusto_))+" para "+BRL(Math.abs(cbsCusto_))+" - reducao de "+BRL(Math.abs(cbsCusto_-pisCusto_))+"/mes. O credito nao-cumulativo da CBS beneficia operacoes com prestadores PJN."
       } : {
         tipo:"alerta",
-        t:"Custo tribut\u00e1rio aumenta com a reforma",
-        d:"Custo sobe de "+BRL(Math.abs(pisCusto_))+" para "+BRL(Math.abs(cbsCusto_))+" (+"+BRL(cbsCusto_-pisCusto_)+"/m\u00eas, +"+pctVar.toFixed(0)+"%). Avaliar renegocia\u00e7\u00e3o do mix de fornecedores pode reverter esse cen\u00e1rio."
+        t:"A Reforma Tributaria eleva o custo tributario desta operacao",
+        d:"O custo sobe de "+BRL(Math.abs(pisCusto_))+" para "+BRL(Math.abs(cbsCusto_))+" (+"+BRL(cbsCusto_-pisCusto_)+"/mes, +"+pctVar.toFixed(0)+"%). Renegociar o perfil dos prestadores (migracao para PJN) e a principal alavanca de reducao."
       },
       // mix
       (mixAutonomo+mixSN+mixLucro)===0 ? {
-        tipo:"alerta",t:"Mix de fornecedores n\u00e3o informado",
-        d:"Preencha o percentual de PF, PJSN e PJN para calcular os cr\u00e9ditos CBS com precis\u00e3o e obter um diagn\u00f3stico completo."
+        tipo:"alerta",t:"Mix de prestadores nao informado - diagnostico incompleto",
+        d:"Para calcular os creditos CBS com precisao, informe o percentual de cada regime (PF, PJSN e PJN). O mix e o principal fator que define o impacto real da reforma."
       } : mixLucro>=50 ? {
-        tipo:"pos",t:"Mix favor\u00e1vel \u2014 predomin\u00e2ncia de PJN ("+mixLucro+"%)",
-        d:"PJN gera o maior cr\u00e9dito CBS: "+lucroRateTerceiros+"%. Com "+mixLucro+"% do frete nesse perfil, sua empresa maximiza os benef\u00edcios da reforma tribut\u00e1ria."
+        tipo:"pos",t:"Mix favoravel: "+mixLucro+"% dos prestadores sao PJN - maior credito CBS",
+        d:"Prestadores PJN (Lucro Presumido/Real) geram credito CBS de "+lucroRateTerceiros+"%. Com "+mixLucro+"% do frete nesse perfil, a empresa aproveita ao maximo o credito nao-cumulativo da reforma."
       } : mixAutonomo>=50 ? {
-        tipo:"alerta",t:"Oportunidade: migrar aut\u00f4nomos ("+mixAutonomo+"%) para PJN",
-        d:"Aut\u00f4nomos (PF) geram apenas 1,86% de cr\u00e9dito CBS \u2014 o menor entre os regimes. Migrar parte para PJN pode reduzir significativamente a carga tribut\u00e1ria futura."
+        tipo:"alerta",t:"Atencao: "+mixAutonomo+"% dos prestadores sao autonomos (PF) - menor credito CBS",
+        d:"Autonomos geram apenas 1,86% de credito CBS contra 9,3% dos PJN. Migrar contratos para PJN pode reduzir significativamente o custo tributario a partir de 2027. Recomenda-se planejamento imediato."
       } : {
-        tipo:"info",t:"Mix diversificado \u2014 cr\u00e9dito m\u00e9dio CBS de "+calcCBSCredito(mixAutonomo,mixSN,mixLucro,lucroRateTerceiros).toFixed(2)+"%",
-        d:"PF "+mixAutonomo+"% / PJSN "+mixSN+"% / PJN "+mixLucro+"%. Aumentar a participa\u00e7\u00e3o de PJN (cr\u00e9dito 9,3%) eleva os benef\u00edcios da reforma."
+        tipo:"info",t:"Mix diversificado - credito medio CBS de "+calcCBSCredito(mixAutonomo,mixSN,mixLucro,lucroRateTerceiros).toFixed(2)+"%",
+        d:"PF "+mixAutonomo+"% / PJSN "+mixSN+"% / PJN "+mixLucro+"%. Elevar a participacao de PJN (credito 9,3%) e a acao mais efetiva para ampliar o beneficio fiscal da reforma."
       },
       // contexto
       pctExportacao>=20 ? {
-        tipo:"pos",t:"Exporta\u00e7\u00e3o ("+pctExportacao+"%) reduz d\u00e9bito CBS/IBS",
-        d:"Fretes internacionais s\u00e3o imunes a CBS/IBS. Esse percentual representa "+BRL(frete*pctExportacao/100*m.cbs/100)+" poupados em d\u00e9bito CBS/m\u00eas \u2014 benef\u00edcio mantido na reforma."
+        tipo:"pos",t:"Exportacao ("+pctExportacao+"%) reduz base de calculo CBS/IBS",
+        d:"Fretes internacionais sao imunes a CBS e IBS. Esse percentual representa "+BRL(frete*pctExportacao/100*m.cbs/100)+" a menos de debito CBS/mes - vantagem mantida na reforma e passivel de creditamento dos insumos."
       } : m.ano>=2029 ? {
-        tipo:"info",t:"IBS ativo em "+m.ano+" \u2014 carga nominal "+m.total+"%",
-        d:"A partir de 2029 o IBS se soma \u00e0 CBS. A carga nominal de "+m.total+"% \u00e9 reduzida pelo cr\u00e9dito pleno dos prestadores. Simule 2027 (s\u00f3 CBS) para comparar."
+        tipo:"info",t:"IBS em vigor em "+m.ano+": carga nominal de "+m.total+"% (CBS + IBS)",
+        d:"A partir de 2029 o IBS se adiciona a CBS. A aliquota nominal de "+m.total+"% e reduzida pelos creditos dos prestadores. Compare com 2027 (somente CBS a 9,3%) para avaliar a evolucao do impacto."
       } : {
-        tipo:"info",t:"Planeje-se para a transi\u00e7\u00e3o completa",
-        d:"Em "+m.ano+" apenas CBS ("+m.cbs+"%) est\u00e1 ativa. O IBS come\u00e7a em 2029 e chega a 28% total em 2033. Negociar contratos com PJN agora garante posi\u00e7\u00e3o vantajosa."
+        tipo:"info",t:"Janela de planejamento: CBS inicia em 2027 - IBS so em 2029",
+        d:"Em "+m.ano+" somente a CBS ("+m.cbs+"%) esta ativa. O IBS entra em 2029 e atinge 28% total em 2033. Renegociar contratos e adequar o mix de prestadores antes de 2027 garante posicao vantajosa."
       },
     ];
 
@@ -1138,7 +1139,7 @@ function Oracle(){
 
     // ── CRONOGRAMA ──
     sf("bold"); doc.setFontSize(6.5); doc.setTextColor(...GR);
-    doc.text("CRONOGRAMA DA TRANSI\u00c7\u00c3O",mg,y+5);
+    doc.text("CRONOGRAMA DA TRANSICAO",mg,y+5);
     doc.setDrawColor(...BD); doc.setLineWidth(0.15); doc.line(mg,y+7,W-mg,y+7);
     y+=10;
     const tlW=cw/MILES.length;
@@ -1158,12 +1159,12 @@ function Oracle(){
 
     // ── COMPOSIÇÃO DOS CRÉDITOS ──
     sf("bold"); doc.setFontSize(6.5); doc.setTextColor(...GR);
-    doc.text("COMPOSI\u00c7\u00c3O DOS CR\u00c9DITOS CBS \u2014 MIX DE FORNECEDORES",mg,y+5);
+    doc.text("COMPOSICAO DOS CREDITOS CBS - MIX DE PRESTADORES",mg,y+5);
     doc.setDrawColor(...BD); doc.setLineWidth(0.15); doc.line(mg,y+7,W-mg,y+7);
     y+=10;
-    [{label:"PF \u00b7 Aut\u00f4nomo",pct:mixAutonomo,val:cbsCrPF_,rate:"1,86%",base:BRL(bPF_),cor:[180,83,9]},
-     {label:"PJSN \u00b7 Simples Nacional",pct:mixSN,val:cbsCrSN_,rate:CBS_CRED.simplesNacional+"%",base:BRL(bSN_cbs),cor:[29,91,215]},
-     {label:"PJN \u00b7 LP/LR",pct:mixLucro,val:cbsCrPJN_,rate:lucroRateTerceiros+"%",base:BRL(bPJN_cbs),cor:[22,163,74]},
+    [{label:"PF - Autonomo",pct:mixAutonomo,val:cbsCrPF_,rate:"1,86%",base:BRL(bPF_),cor:[180,83,9]},
+     {label:"PJSN - Simples Nacional",pct:mixSN,val:cbsCrSN_,rate:CBS_CRED.simplesNacional+"%",base:BRL(bSN_cbs),cor:[29,91,215]},
+     {label:"PJN - Lucro Presumido/Real",pct:mixLucro,val:cbsCrPJN_,rate:lucroRateTerceiros+"%",base:BRL(bPJN_cbs),cor:[22,163,74]},
     ].forEach((row,i)=>{
       const ry=y+i*11;
       doc.setFillColor(i%2===0?247:255,i%2===0?247:255,i%2===0?250:255);
@@ -1172,7 +1173,7 @@ function Oracle(){
       sf("bold"); doc.setFontSize(7); doc.setTextColor(...DK);
       doc.text(row.label,mg+6,ry+4.5);
       sf("normal"); doc.setFontSize(5.8); doc.setTextColor(...GR);
-      doc.text("Part.: "+row.pct+"%  \u00b7  Taxa CBS: "+row.rate+"  \u00b7  Base: "+row.base,mg+6,ry+8.5);
+      doc.text("Participacao: "+row.pct+"% - Taxa CBS: "+row.rate+" - Base: "+row.base,mg+6,ry+8.5);
       sf("bold"); doc.setFontSize(8.5); doc.setTextColor(...row.cor);
       doc.text(BRL(row.val),mg+cw-2,ry+6,{align:"right"});
     });
@@ -1198,17 +1199,17 @@ function Oracle(){
     sf("bold"); doc.setFontSize(11); doc.setTextColor(...DK);
     doc.text("Detalhamento dos C\u00e1lculos",mg+18,13);
     sf("normal"); doc.setFontSize(7); doc.setTextColor(...GR);
-    doc.text("Como chegamos nos n\u00fameros do diagn\u00f3stico \u2014 "+m.ano+" \u00b7 "+m.label,mg+18,18.5);
+    doc.text("Memoria de calculo do diagnostico - "+m.ano+" / "+m.label,mg+18,18.5);
     doc.setDrawColor(...BD); doc.setLineWidth(0.3); doc.line(mg,22,W-mg,22);
     y=26;
 
     // Contexto
     sf("bold"); doc.setFontSize(6.5); doc.setTextColor(...GR);
-    doc.text("O QUE EST\u00c1 ACONTECENDO",mg,y+5);
+    doc.text("O QUE ESTA ACONTECENDO COM OS TRIBUTOS",mg,y+5);
     doc.setDrawColor(...BD); doc.setLineWidth(0.15); doc.line(mg,y+7,W-mg,y+7);
     y+=10;
-    const ctx1=doc.splitTextToSize("A Reforma Tribut\u00e1ria (LC\u00a0214/2025) extingue PIS e COFINS em 2027, substituindo-os pela CBS (9,3%). A partir de 2029 o IBS entra progressivamente, chegando a 18,7% em 2033 \u2014 totalizando 28% de IVA Dual nominal.",cw-10);
-    const ctx2=doc.splitTextToSize("Para o TRC, a principal mudan\u00e7a \u00e9 o cr\u00e9dito n\u00e3o-cumulativo: pagamentos a prestadores PJN geram cr\u00e9dito CBS de 9,3%. Aut\u00f4nomos (PF) geram 1,86% \u2014 o mix de fornecedores define o impacto real na sua opera\u00e7\u00e3o.",cw-10);
+    const ctx1=doc.splitTextToSize("A Reforma Tributaria (LC 214/2025) extingue PIS e COFINS em 2027 e os substitui pela CBS (9,3%). A partir de 2029, o IBS entra progressivamente ate atingir 18,7% em 2033, totalizando 28% de carga nominal (IVA Dual).",cw-10);
+    const ctx2=doc.splitTextToSize("Para o Transporte Rodoviario de Cargas, a principal mudanca e o credito nao-cumulativo: cada pagamento a prestador PJN (Lucro Presumido/Real) gera credito CBS de 9,3%. Autonomos (PF) geram apenas 1,86%. O perfil dos prestadores define o impacto real da reforma para cada operacao.",cw-10);
     const ctxH=4+(ctx1.length+ctx2.length+1)*5+4;
     doc.setFillColor(...BG); doc.rect(mg,y,cw,ctxH,"F");
     doc.setFillColor(...OR); doc.rect(mg,y,3,ctxH,"F");
@@ -1252,7 +1253,7 @@ function Oracle(){
     sf("bold"); doc.setFontSize(11); doc.setTextColor(...DK);
     doc.text("PIS / COFINS",xL+2,yL+7.5);
     sf("normal"); doc.setFontSize(6.5); doc.setTextColor(...GR);
-    doc.text("Al\u00edquota "+aliqPIS+"%  \u00b7  "+regime,xL+2,yL+12.5);
+    doc.text("Aliquota "+aliqPIS+"% - "+regime,xL+2,yL+12.5);
     doc.setDrawColor(...BD); doc.setLineWidth(0.2); doc.line(xL,yL+14.5,xL+colW,yL+14.5);
     yL+=17;
     sf("bold"); doc.setFontSize(5.5); doc.setTextColor(...LG);
@@ -1261,7 +1262,7 @@ function Oracle(){
     debRow(xL,"Faturamento bruto",BRL(frete),{dim:true},yLa);
     if(pctExportacao>0) debRow(xL,"(-) Exporta\u00e7\u00e3o "+pctExportacao+"%","("+BRL(frete*pctExportacao/100)+")",{green:true},yLa);
     debRow(xL,"Base tribut\u00e1vel",BRL(baseExec),{bold:true},yLa);
-    debRow(xL,"\u00d7 Al\u00edquota PIS/COFINS "+aliqPIS+"%","\u2193",{dim:true},yLa);
+    debRow(xL,"x Aliquota PIS/COFINS "+aliqPIS+"%","=",{dim:true},yLa);
     yL=yLa[0];
     doc.setFillColor(255,241,241); doc.rect(xL,yL,colW,11,"F");
     doc.setFillColor(...RD); doc.rect(xL,yL,3,11,"F");
@@ -1275,12 +1276,12 @@ function Oracle(){
     doc.text("base: "+BRL(baseTerN),xL+colW-2,yL+3.5,{align:"right"});
     yL+=7;
     const yLb=[yL];
-    credCard(xL,"PF \u00b7 Aut\u00f4nomo",mixAutonomo,pisCrPF_,
-      BRL(bPF_)+" \u00d7 75% \u2192 \u00d7 "+aliqPIS+"%",[180,83,9],yLb);
-    credCard(xL,"PJSN \u00b7 Simples Nacional",mixSN,pisCrSN_,
-      BRL(bSN_)+" \u00d7 75% \u2192 \u00d7 "+aliqPIS+"%",[29,91,215],yLb);
-    credCard(xL,"PJN \u00b7 LP/LR",mixLucro,pisCrPJN_,
-      BRL(bPJN_)+" \u00d7 100% \u2192 \u00d7 "+aliqPIS+"%",[22,163,74],yLb);
+    credCard(xL,"PF - Autonomo",mixAutonomo,pisCrPF_,
+      BRL(bPF_)+" x 75% x "+aliqPIS+"%",[180,83,9],yLb);
+    credCard(xL,"PJSN - Simples Nacional",mixSN,pisCrSN_,
+      BRL(bSN_)+" x 75% x "+aliqPIS+"%",[29,91,215],yLb);
+    credCard(xL,"PJN - Lucro Presumido/Real",mixLucro,pisCrPJN_,
+      BRL(bPJN_)+" x 100% x "+aliqPIS+"%",[22,163,74],yLb);
     yL=yLb[0];
     doc.setFillColor(240,253,244); doc.rect(xL,yL,colW,11,"F");
     sf("bold"); doc.setFontSize(6.5); doc.setTextColor(...GN);
@@ -1291,11 +1292,11 @@ function Oracle(){
     doc.setFillColor(...(pisCusto_<=0?[240,253,244]:[255,241,241]));
     doc.setDrawColor(...pCr); doc.setLineWidth(0.4); doc.rect(xL,yL,colW,20,"FD");
     sf("normal"); doc.setFontSize(7); doc.setTextColor(...GR);
-    doc.text("Cr\u00e9dito  +"+BRL(pisCrTot_),xL+4,yL+7);
-    doc.text("D\u00e9bito  \u2212"+BRL(pisDeb_),xL+4,yL+12);
+    doc.text("Credito  +"+BRL(pisCrTot_),xL+4,yL+7);
+    doc.text("Debito   -"+BRL(pisDeb_),xL+4,yL+12);
     doc.setDrawColor(...pCr); doc.setLineWidth(0.25); doc.line(xL+3,yL+13.5,xL+colW-3,yL+13.5);
     sf("bold"); doc.setFontSize(7); doc.setTextColor(...pCr);
-    doc.text("\u2192 "+(pisCusto_<=0?"CREDOR":"DEVEDOR"),xL+4,yL+18);
+    doc.text((pisCusto_<=0?">> CREDOR":">> DEVEDOR"),xL+4,yL+18);
     doc.setFontSize(11); doc.text(BRL(Math.abs(pisCusto_)),xL+colW-2,yL+18,{align:"right"});
     yL+=23;
 
@@ -1304,7 +1305,7 @@ function Oracle(){
     sf("bold"); doc.setFontSize(11); doc.setTextColor(...mCor);
     doc.text("CBS "+m.cbs+"%"+(m.ibs>0?" + IBS "+m.ibs+"%":""),xR+2,yR+7.5);
     sf("normal"); doc.setFontSize(6.5); doc.setTextColor(...GR);
-    doc.text("Total "+m.total+"%  \u00b7  "+m.ano+" \u2014 "+m.label,xR+2,yR+12.5);
+    doc.text("Total "+m.total+"% - "+m.ano+" / "+m.label,xR+2,yR+12.5);
     doc.setDrawColor(...BD); doc.setLineWidth(0.2); doc.line(xR,yR+14.5,xR+colW,yR+14.5);
     yR+=17;
     sf("bold"); doc.setFontSize(5.5); doc.setTextColor(...LG);
@@ -1313,8 +1314,8 @@ function Oracle(){
     debRow(xR,"Faturamento bruto",BRL(frete),{dim:true},yRa);
     if(pctExportacao>0) debRow(xR,"(-) Exporta\u00e7\u00e3o "+pctExportacao+"%","("+BRL(frete*pctExportacao/100)+")",{green:true},yRa);
     debRow(xR,"Base tribut\u00e1vel",BRL(baseExec),{bold:true},yRa);
-    debRow(xR,"\u00d7 CBS "+m.cbs+"%",BRL(cbsDeb_),{red:true},yRa);
-    if(m.ibs>0) debRow(xR,"\u00d7 IBS "+m.ibs+"%",BRL(ibsDeb_),{red:true},yRa);
+    debRow(xR,"x CBS "+m.cbs+"%",BRL(cbsDeb_),{red:true},yRa);
+    if(m.ibs>0) debRow(xR,"x IBS "+m.ibs+"%",BRL(ibsDeb_),{red:true},yRa);
     yR=yRa[0];
     doc.setFillColor(255,241,241); doc.rect(xR,yR,colW,11,"F");
     doc.setFillColor(...RD); doc.rect(xR,yR,3,11,"F");
@@ -1328,12 +1329,12 @@ function Oracle(){
     doc.text("SN/PJN: base "+BRL(baseTerTax),xR+colW-2,yR+3.5,{align:"right"});
     yR+=7;
     const yRb=[yR];
-    credCard(xR,"PF \u00b7 Aut\u00f4nomo",mixAutonomo,cbsCrPF_,
-      BRL(bPF_)+" \u00d7 20% = "+BRL(bPF_*0.2)+" \u2192 \u00d7 "+m.cbs+"%",[180,83,9],yRb);
-    credCard(xR,"PJSN \u00b7 Simples Nacional",mixSN,cbsCrSN_,
-      BRL(bSN_cbs)+" \u00d7 "+CBS_CRED.simplesNacional+"%",[29,91,215],yRb);
-    credCard(xR,"PJN \u00b7 "+(regimeLucroTerceiros==="Lucro Real"?"LR":"LP"),mixLucro,cbsCrPJN_,
-      BRL(bPJN_cbs)+" \u00d7 "+lucroRateTerceiros+"%",[22,163,74],yRb);
+    credCard(xR,"PF - Autonomo",mixAutonomo,cbsCrPF_,
+      BRL(bPF_)+" x 20% x "+m.cbs+"%",[180,83,9],yRb);
+    credCard(xR,"PJSN - Simples Nacional",mixSN,cbsCrSN_,
+      BRL(bSN_cbs)+" x "+CBS_CRED.simplesNacional+"%",[29,91,215],yRb);
+    credCard(xR,"PJN - "+(regimeLucroTerceiros==="Lucro Real"?"Lucro Real":"Lucro Presumido"),mixLucro,cbsCrPJN_,
+      BRL(bPJN_cbs)+" x "+lucroRateTerceiros+"%",[22,163,74],yRb);
     if(m.ibs>0){
       doc.setFillColor(...BG); doc.rect(xR,yRb[0],colW,13,"F");
       doc.setFillColor(147,51,234); doc.rect(xR,yRb[0],2.5,13,"F");
@@ -1353,11 +1354,11 @@ function Oracle(){
     doc.setFillColor(...(cbsCusto_<=0?[240,253,244]:[255,241,241]));
     doc.setDrawColor(...cCr); doc.setLineWidth(0.4); doc.rect(xR,yR,colW,20,"FD");
     sf("normal"); doc.setFontSize(7); doc.setTextColor(...GR);
-    doc.text("Cr\u00e9ditos  +"+BRL(cbsCrTot_+ibsCrTot_),xR+4,yR+7);
-    doc.text("D\u00e9bito  \u2212"+BRL(cbsDeb_+ibsDeb_),xR+4,yR+12);
+    doc.text("Credito  +"+BRL(cbsCrTot_+ibsCrTot_),xR+4,yR+7);
+    doc.text("Debito   -"+BRL(cbsDeb_+ibsDeb_),xR+4,yR+12);
     doc.setDrawColor(...cCr); doc.setLineWidth(0.25); doc.line(xR+3,yR+13.5,xR+colW-3,yR+13.5);
     sf("bold"); doc.setFontSize(7); doc.setTextColor(...cCr);
-    doc.text("\u2192 "+(cbsCusto_<=0?"CREDOR":"CBS A PAGAR"),xR+4,yR+18);
+    doc.text((cbsCusto_<=0?">> CREDOR":">> CBS A PAGAR"),xR+4,yR+18);
     doc.setFontSize(11); doc.text(BRL(Math.abs(cbsCusto_)),xR+colW-2,yR+18,{align:"right"});
     yR+=23;
 
