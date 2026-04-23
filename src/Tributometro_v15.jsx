@@ -957,12 +957,11 @@ function Oracle(){
 
   const gerarPDF = async () => {
     const W=210,H=297,mg=14,cw=W-mg*2;
-    const OR=[255,130,0],DK=[30,30,45],GR=[110,110,128];
-    const LG=[165,165,182],BG=[247,247,250],BD=[222,222,232];
+    const OR=[255,130,0],DK=[26,26,42],GR=[107,107,128];
+    const LG=[165,165,182],BG=[247,247,250],BD=[224,224,232];
     const RD=[220,38,38],GN=[22,163,74];
     const h2r=h=>{const v=parseInt(h.replace("#",""),16);return[(v>>16)&255,(v>>8)&255,v&255];};
     const mCor=h2r(m.cor);
-
     const BRL=v=>"R$ "+Number(v||0).toLocaleString("pt-BR",{maximumFractionDigits:0});
 
     let logoData=null;
@@ -973,53 +972,200 @@ function Oracle(){
     }catch(_){}
 
     const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
-
     const frame=()=>{
-      doc.setFillColor(...OR); doc.rect(0,0,W,3.5,"F");
-      doc.setFillColor(...OR); doc.rect(0,H-3,W,3,"F");
+      doc.setFillColor(...OR); doc.rect(0,0,W,4,"F");
+      doc.setFillColor(...OR); doc.rect(0,H-3.5,W,3.5,"F");
     };
+
+    // ══════════════════════════════════════════════
+    // PÁGINA 1 — DIAGNÓSTICO EXECUTIVO
+    // ══════════════════════════════════════════════
     frame();
 
     // ── HEADER ──
-    if(logoData) doc.addImage(logoData,"PNG",mg,5,20,20);
-    const tx=mg+24;
-    doc.setFont("helvetica","bold"); doc.setFontSize(14); doc.setTextColor(...DK);
-    doc.text("Impacto da Reforma Tributária — Terceirização",tx,12);
-    doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(...OR);
-    doc.text("CBS + IBS  ·  Lei Complementar 214/2025",tx,18);
+    if(logoData) doc.addImage(logoData,"PNG",mg,6,18,18);
+    const tx=mg+22;
+    doc.setFont("helvetica","bold"); doc.setFontSize(15); doc.setTextColor(...DK);
+    doc.text("Diagn\u00f3stico de Impacto Tribut\u00e1rio",tx,13);
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(...OR);
+    doc.text("Reforma Tribut\u00e1ria \u00b7 Terceiriza\u00e7\u00e3o de Fretes \u00b7 LC 214/2025",tx,19);
     doc.setFontSize(7); doc.setTextColor(...LG);
-    doc.text("Ano simulado: "+m.ano+" — "+m.label+"   ·   Gerado em "+
-      new Date().toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"}),tx,23);
-    doc.setDrawColor(...BD); doc.setLineWidth(0.4); doc.line(mg,27,W-mg,27);
+    doc.text("Gerado em "+new Date().toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"})
+      +"   \u00b7   Simula\u00e7\u00e3o para o ano de "+m.ano+" \u2014 "+m.label,tx,24);
+    doc.setDrawColor(...BD); doc.setLineWidth(0.3); doc.line(mg,27,W-mg,27);
+
     // ── PARÂMETROS ──
     let y=30;
     doc.setFillColor(...BG); doc.rect(mg,y,cw,22,"F");
+    doc.setDrawColor(...BD); doc.setLineWidth(0.2); doc.rect(mg,y,cw,22,"S");
     const ps=cw/4;
-    [{l:"Faturamento / mês",v:BRL(frete)},{l:"Exportação",v:pctExportacao+"%"},
-     {l:"Margem terceiros",v:margemTerceiros+"%"},{l:"Regime da empresa",v:regime}]
+    [{l:"Faturamento / m\u00eas",v:BRL(frete)},{l:"Exporta\u00e7\u00e3o",v:pctExportacao+"%"},
+     {l:"Margem terceiros",v:margemTerceiros+"%"},{l:"Regime",v:regime}]
     .forEach((p,i)=>{
-      const px=mg+i*ps+3;
+      const px=mg+i*ps+4;
       doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(...LG);
-      doc.text(p.l,px,y+5);
-      doc.setFont("helvetica","bold"); doc.setFontSize(9.5); doc.setTextColor(...DK);
-      doc.text(p.v,px,y+12);
+      doc.text(p.l,px,y+6);
+      doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(...DK);
+      doc.text(p.v,px,y+13);
     });
     doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(...GR);
-    doc.text("Mix:  PF "+mixAutonomo+"%  ·  PJSN "+mixSN+"%  ·  PJN "+mixLucro+"%" +
-      (mixLucro>0?"  (Regime PJN: "+regimeLucroTerceiros+")":""),mg+3,y+19);
+    doc.text("Mix de fornecedores:  PF (Aut\u00f4nomo) "+mixAutonomo+"%  \u00b7  PJSN (Simples Nacional) "+mixSN+"%  \u00b7  PJN (Lucro Presumido/Real) "+mixLucro+"%",mg+4,y+19.5);
     y+=25;
 
-    // ── DUAS COLUNAS ──
+    // ── DIAGNÓSTICO: HOJE vs REFORMA ──
+    doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(...GR);
+    doc.text("DIAGN\u00d3STICO \u2014 RESULTADO MENSAL ESTIMADO",mg,y+5);
+    doc.setDrawColor(...BD); doc.setLineWidth(0.15); doc.line(mg,y+7,W-mg,y+7);
+    y+=10;
+
+    const dw=(cw-6)/2;
+    const pisCr=pisCusto_<=0?GN:RD;
+    const pisTxt=pisCusto_<=0?"CREDOR":"DEVEDOR";
+    doc.setFillColor(...(pisCusto_<=0?[240,253,244]:[255,241,241]));
+    doc.setDrawColor(...pisCr); doc.setLineWidth(0.5);
+    doc.rect(mg,y,dw,38,"FD");
+    doc.setFillColor(...pisCr); doc.rect(mg,y,dw,5,"F");
+    doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(255,255,255);
+    doc.text("HOJE \u2014 PIS/COFINS "+aliqPIS+"%",mg+4,y+3.5);
+    doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...GR);
+    doc.text("Custo tribut\u00e1rio mensal estimado",mg+4,y+12);
+    doc.setFont("helvetica","bold"); doc.setFontSize(20); doc.setTextColor(...pisCr);
+    doc.text(BRL(Math.abs(pisCusto_)),mg+dw/2,y+24,{align:"center"});
+    doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(...pisCr);
+    doc.text(pisTxt,mg+dw/2,y+30,{align:"center"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(...GR);
+    doc.text("D\u00e9bito: "+BRL(pisDeb_)+"  \u00b7  Cr\u00e9dito: "+BRL(pisCrTot_),mg+dw/2,y+35.5,{align:"center"});
+
+    const cbsCr=cbsCusto_<=0?GN:RD;
+    const cbsTxt=cbsCusto_<=0?"CREDOR":"A PAGAR";
+    doc.setFillColor(...(cbsCusto_<=0?[240,253,244]:[255,241,241]));
+    doc.setDrawColor(...cbsCr); doc.setLineWidth(0.5);
+    const rx=mg+dw+6;
+    doc.rect(rx,y,dw,38,"FD");
+    doc.setFillColor(...cbsCr); doc.rect(rx,y,dw,5,"F");
+    doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(255,255,255);
+    doc.text("REFORMA "+m.ano+" \u2014 CBS"+(m.ibs>0?" + IBS":"")+" "+m.total+"%",rx+4,y+3.5);
+    doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...GR);
+    doc.text("Custo tribut\u00e1rio mensal estimado",rx+4,y+12);
+    doc.setFont("helvetica","bold"); doc.setFontSize(20); doc.setTextColor(...cbsCr);
+    doc.text(BRL(Math.abs(cbsCusto_)),rx+dw/2,y+24,{align:"center"});
+    doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(...cbsCr);
+    doc.text(cbsTxt,rx+dw/2,y+30,{align:"center"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(...GR);
+    doc.text("D\u00e9bito: "+BRL(cbsDeb_+ibsDeb_)+"  \u00b7  Cr\u00e9dito: "+BRL(cbsCrTot_+ibsCrTot_),rx+dw/2,y+35.5,{align:"center"});
+    y+=42;
+
+    const diff=cbsCusto_-pisCusto_;
+    const dCor=diff>0?RD:GN;
+    doc.setFillColor(...(diff>0?[255,241,241]:[240,253,244]));
+    doc.setDrawColor(...dCor); doc.setLineWidth(0.3); doc.rect(mg,y,cw,10,"FD");
+    doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(...dCor);
+    const diffTxt=(diff>0?"\u25b2 Custo adicional de ":"\u25bc Economia de ")+BRL(Math.abs(diff))+"/m\u00eas com a reforma tribut\u00e1ria em "+m.ano;
+    doc.text(diffTxt,mg+cw/2,y+6.5,{align:"center"});
+    y+=14;
+
+    // ── O QUE ESTÁ ACONTECENDO ──
+    doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(...GR);
+    doc.text("O QUE EST\u00c1 ACONTECENDO",mg,y+5);
+    doc.setDrawColor(...BD); doc.setLineWidth(0.15); doc.line(mg,y+7,W-mg,y+7);
+    y+=10;
+    doc.setFillColor(...BG); doc.rect(mg,y,cw,34,"F");
+    doc.setFillColor(...OR); doc.rect(mg,y,3,34,"F");
+    const p1=doc.splitTextToSize(
+      "A Reforma Tribut\u00e1ria brasileira (LC 214/2025) extingue PIS e COFINS em janeiro de 2027, substituindo-os pela CBS (Contribui\u00e7\u00e3o sobre Bens e Servi\u00e7os) com al\u00edquota de 9,3%. A partir de 2029, o IBS (Imposto sobre Bens e Servi\u00e7os) entra progressivamente, chegando a 18,7% em 2033 \u2014 totalizando 28% de IVA Dual nominal.",
+      cw-12);
+    doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...GR);
+    p1.forEach((l,i)=>doc.text(l,mg+6,y+7+i*5));
+    const p2=doc.splitTextToSize(
+      "A grande mudan\u00e7a para o TRC: o cr\u00e9dito tribut\u00e1rio torna-se n\u00e3o-cumulativo e muito mais amplo. Prestadores PJN (Lucro Presumido/Real) geram cr\u00e9dito CBS de 9,3% \u2014 reduzindo significativamente a carga final de empresas com mix qualificado.",
+      cw-12);
+    const p2y=y+7+p1.length*5+3;
+    doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(...DK);
+    p2.forEach((l,i)=>doc.text(l,mg+6,p2y+i*5));
+    y+=38;
+
+    // ── CRONOGRAMA ──
+    doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(...GR);
+    doc.text("CRONOGRAMA DA TRANSI\u00c7\u00c3O",mg,y+5);
+    doc.setDrawColor(...BD); doc.setLineWidth(0.15); doc.line(mg,y+7,W-mg,y+7);
+    y+=10;
+    const tlW=cw/MILES.length;
+    MILES.forEach((mile,i)=>{
+      const tx2=mg+i*tlW;
+      const isA=mile.ano===m.ano;
+      const mc=h2r(mile.cor);
+      if(isA){doc.setFillColor(...mc);}else{doc.setFillColor(240,240,243);}
+      doc.rect(tx2,y,tlW-1,20,"F");
+      if(isA){doc.setTextColor(255,255,255);}else{doc.setTextColor(...mc);}
+      doc.setFont("helvetica","bold"); doc.setFontSize(7.5);
+      doc.text(String(mile.ano),tx2+tlW/2-0.5,y+8,{align:"center"});
+      doc.setFont("helvetica","normal"); doc.setFontSize(5.5);
+      if(isA){doc.setTextColor(255,255,255);}else{doc.setTextColor(...mc);}
+      doc.text(mile.total+"%",tx2+tlW/2-0.5,y+13,{align:"center"});
+      doc.setFontSize(5);
+      doc.text(mile.label,tx2+tlW/2-0.5,y+17.5,{align:"center"});
+    });
+    y+=24;
+
+    // ── CRÉDITOS DO SEU MIX ──
+    doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(...GR);
+    doc.text("COMPOSI\u00c7\u00c3O DOS CR\u00c9DITOS CBS \u2014 SEU MIX DE FORNECEDORES",mg,y+5);
+    doc.setDrawColor(...BD); doc.setLineWidth(0.15); doc.line(mg,y+7,W-mg,y+7);
+    y+=10;
+    const credRows=[
+      {label:"PF \u00b7 Aut\u00f4nomo",pct:mixAutonomo,val:cbsCrPF_,rate:"1,86%",base:BRL(bPF_),cor:[180,83,9]},
+      {label:"PJSN \u00b7 Simples Nacional",pct:mixSN,val:cbsCrSN_,rate:CBS_CRED.simplesNacional+"%",base:BRL(bSN_cbs),cor:[29,91,215]},
+      {label:"PJN \u00b7 LP/LR",pct:mixLucro,val:cbsCrPJN_,rate:lucroRateTerceiros+"%",base:BRL(bPJN_cbs),cor:[22,163,74]},
+    ];
+    const rH=13;
+    credRows.forEach((row,i)=>{
+      const ry=y+i*rH;
+      doc.setFillColor(i%2===0?247:255,i%2===0?247:255,i%2===0?250:255);
+      doc.rect(mg,ry,cw,rH,"F");
+      doc.setFillColor(...row.cor); doc.rect(mg,ry,3,rH,"F");
+      doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(...DK);
+      doc.text(row.label,mg+6,ry+5.5);
+      doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(...GR);
+      doc.text("Participa\u00e7\u00e3o: "+row.pct+"%  \u00b7  Taxa CBS: "+row.rate+"  \u00b7  Base: "+row.base,mg+6,ry+10);
+      doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(...row.cor);
+      doc.text(BRL(row.val),mg+cw-2,ry+7,{align:"right"});
+    });
+    y+=credRows.length*rH;
+    doc.setFillColor(240,253,244); doc.rect(mg,y,cw,11,"F");
+    doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(...GN);
+    doc.text("Total cr\u00e9ditos CBS"+(m.ibs>0?" + IBS":""),mg+4,y+7);
+    doc.setFontSize(10); doc.text(BRL(cbsCrTot_+ibsCrTot_),mg+cw-2,y+7.5,{align:"right"});
+    y+=15;
+
+    // Disclaimer p1
+    doc.setDrawColor(...BD); doc.setLineWidth(0.25); doc.line(mg,y,W-mg,y); y+=4;
+    doc.setFont("helvetica","italic"); doc.setFontSize(6.5); doc.setTextColor(...LG);
+    doc.text("Valores estimados com base nos par\u00e2metros informados e nas al\u00edquotas previstas na LC 214/2025. N\u00e3o substitui consultoria tribut\u00e1ria especializada.",mg,y+3);
+    doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(...LG);
+    doc.text("P\u00e1gina 1 de 2",W-mg,y+3,{align:"right"});
+
+    // ══════════════════════════════════════════════
+    // PÁGINA 2 — DETALHAMENTO TÉCNICO
+    // ══════════════════════════════════════════════
+    doc.addPage(); frame();
+
+    if(logoData) doc.addImage(logoData,"PNG",mg,6,14,14);
+    doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(...DK);
+    doc.text("Detalhamento dos C\u00e1lculos",mg+18,13);
+    doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...GR);
+    doc.text("Como chegamos nos n\u00fameros do diagn\u00f3stico \u2014 "+m.ano+" \u00b7 "+m.label,mg+18,18.5);
+    doc.setDrawColor(...BD); doc.setLineWidth(0.3); doc.line(mg,22,W-mg,22);
+    y=26;
+
     const gap=5,colW=(cw-gap)/2;
     const xL=mg,xR=mg+colW+gap;
     let yL=y,yR=y;
 
     const debRow=(x,label,val,opts,yRef)=>{
-      const vcol=opts.green?GN:opts.red?RD:opts.bold?DK:GR;
       doc.setFont("helvetica",opts.bold?"bold":"normal");
-      doc.setFontSize(7.5); doc.setTextColor(...(opts.green?GN:opts.dim?LG:DK));
+      doc.setFontSize(7.5); doc.setTextColor(...(opts.dim?LG:opts.green?GN:DK));
       doc.text(label,x+3,yRef[0]+4.5);
-      doc.setFont("helvetica","bold"); doc.setTextColor(...vcol);
+      doc.setFont("helvetica","bold"); doc.setTextColor(...(opts.green?GN:opts.red?RD:opts.bold?DK:GR));
       doc.text(val,x+colW-2,yRef[0]+4.5,{align:"right"});
       doc.setDrawColor(...BD); doc.setLineWidth(0.2);
       doc.line(x+2,yRef[0]+6,x+colW-2,yRef[0]+6);
@@ -1043,57 +1189,50 @@ function Oracle(){
     doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.setTextColor(...DK);
     doc.text("PIS / COFINS",xL+2,yL+8);
     doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(...GR);
-    doc.text("Alíquota "+aliqPIS+"%  ·  "+regime,xL+2,yL+13);
+    doc.text("Al\u00edquota "+aliqPIS+"%  \u00b7  "+regime,xL+2,yL+13);
     doc.setDrawColor(...BD); doc.setLineWidth(0.2); doc.line(xL,yL+15,xL+colW,yL+15);
     yL+=18;
-
     doc.setFont("helvetica","bold"); doc.setFontSize(6); doc.setTextColor(...LG);
-    doc.text("DÉBITO",xL+2,yL+4); yL+=7;
-
+    doc.text("D\u00c9BITO",xL+2,yL+4); yL+=7;
     const yLa=[yL];
     debRow(xL,"Faturamento bruto",BRL(frete),{dim:true},yLa);
-    if(pctExportacao>0) debRow(xL,"(-) Exportação "+pctExportacao+"%","("+BRL(frete*pctExportacao/100)+")",{green:true},yLa);
-    debRow(xL,"Base tributável",BRL(baseExec),{bold:true},yLa);
-    debRow(xL,"× Alíquota "+aliqPIS+"%","↓",{dim:true},yLa);
+    if(pctExportacao>0) debRow(xL,"(-) Exporta\u00e7\u00e3o "+pctExportacao+"%","("+BRL(frete*pctExportacao/100)+")",{green:true},yLa);
+    debRow(xL,"Base tribut\u00e1vel",BRL(baseExec),{bold:true},yLa);
+    debRow(xL,"\u00d7 Al\u00edquota "+aliqPIS+"%","\u2193",{dim:true},yLa);
     yL=yLa[0];
-
     doc.setFillColor(255,241,241); doc.rect(xL,yL,colW,11,"F");
     doc.setFillColor(...RD); doc.rect(xL,yL,3,11,"F");
     doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(...RD);
-    doc.text("DÉBITO PIS/COFINS",xL+6,yL+5.5);
+    doc.text("D\u00c9BITO PIS/COFINS",xL+6,yL+5.5);
     doc.setFontSize(11); doc.text(BRL(pisDeb_),xL+colW-2,yL+8,{align:"right"});
     yL+=14;
-
     doc.setFont("helvetica","bold"); doc.setFontSize(6); doc.setTextColor(...LG);
-    doc.text("CRÉDITOS",xL+2,yL+4);
+    doc.text("CR\u00c9DITOS",xL+2,yL+4);
     doc.setFont("helvetica","normal"); doc.setFontSize(6);
     doc.text("base: "+BRL(baseTerN),xL+colW-2,yL+4,{align:"right"});
     yL+=8;
-
     const yLb=[yL];
-    credCard(xL,"PF · Autônomo",mixAutonomo,pisCrPF_,
-      BRL(bPF_)+" × 75% = "+BRL(bPF_*0.75)+" → × "+aliqPIS+"%",[180,83,9],yLb);
-    credCard(xL,"PJSN · Simples Nacional",mixSN,pisCrSN_,
-      BRL(bSN_)+" × 75% = "+BRL(bSN_*0.75)+" → × "+aliqPIS+"%",[29,91,215],yLb);
-    credCard(xL,"PJN · LP/LR",mixLucro,pisCrPJN_,
-      BRL(bPJN_)+" × 100% → × "+aliqPIS+"%",[22,163,74],yLb);
+    credCard(xL,"PF \u00b7 Aut\u00f4nomo",mixAutonomo,pisCrPF_,
+      BRL(bPF_)+" \u00d7 75% = "+BRL(bPF_*0.75)+" \u2192 \u00d7 "+aliqPIS+"%",[180,83,9],yLb);
+    credCard(xL,"PJSN \u00b7 Simples Nacional",mixSN,pisCrSN_,
+      BRL(bSN_)+" \u00d7 75% = "+BRL(bSN_*0.75)+" \u2192 \u00d7 "+aliqPIS+"%",[29,91,215],yLb);
+    credCard(xL,"PJN \u00b7 LP/LR",mixLucro,pisCrPJN_,
+      BRL(bPJN_)+" \u00d7 100% \u2192 \u00d7 "+aliqPIS+"%",[22,163,74],yLb);
     yL=yLb[0];
-
     doc.setFillColor(240,253,244); doc.rect(xL,yL,colW,11,"F");
     doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(...GN);
-    doc.text("Total créditos",xL+3,yL+6.5);
+    doc.text("Total cr\u00e9ditos",xL+3,yL+6.5);
     doc.setFontSize(11); doc.text(BRL(pisCrTot_),xL+colW-2,yL+7.5,{align:"right"});
     yL+=14;
-
     const pCr=pisCusto_<=0?GN:RD;
     doc.setFillColor(...(pisCusto_<=0?[240,253,244]:[255,241,241]));
     doc.setDrawColor(...pCr); doc.setLineWidth(0.5); doc.rect(xL,yL,colW,19,"FD");
     doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...GR);
-    doc.text("Crédito:  +"+BRL(pisCrTot_),xL+4,yL+6);
-    doc.text("Débito:   -"+BRL(pisDeb_),xL+4,yL+11);
+    doc.text("Cr\u00e9dito:  +"+BRL(pisCrTot_),xL+4,yL+6);
+    doc.text("D\u00e9bito:   -"+BRL(pisDeb_),xL+4,yL+11);
     doc.setDrawColor(...pCr); doc.setLineWidth(0.3); doc.line(xL+3,yL+12.5,xL+colW-3,yL+12.5);
     doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(...pCr);
-    doc.text("→ "+(pisCusto_<=0?"CREDOR":"DEVEDOR"),xL+4,yL+17);
+    doc.text("\u2192 "+(pisCusto_<=0?"CREDOR":"DEVEDOR"),xL+4,yL+17);
     doc.setFontSize(13); doc.text(BRL(Math.abs(pisCusto_)),xL+colW-2,yL+17,{align:"right"});
     yL+=23;
 
@@ -1102,111 +1241,74 @@ function Oracle(){
     doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.setTextColor(...mCor);
     doc.text("CBS "+m.cbs+"%"+(m.ibs>0?" + IBS "+m.ibs+"%":""),xR+2,yR+8);
     doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(...GR);
-    doc.text("Total: "+m.total+"%  ·  "+m.ano+" — "+m.label,xR+2,yR+13);
+    doc.text("Total: "+m.total+"%  \u00b7  "+m.ano+" \u2014 "+m.label,xR+2,yR+13);
     doc.setDrawColor(...BD); doc.setLineWidth(0.2); doc.line(xR,yR+15,xR+colW,yR+15);
     yR+=18;
-
     doc.setFont("helvetica","bold"); doc.setFontSize(6); doc.setTextColor(...LG);
-    doc.text("DÉBITO",xR+2,yR+4); yR+=7;
-
+    doc.text("D\u00c9BITO",xR+2,yR+4); yR+=7;
     const yRa=[yR];
     debRow(xR,"Faturamento bruto",BRL(frete),{dim:true},yRa);
-    if(pctExportacao>0) debRow(xR,"(-) Exportação "+pctExportacao+"%","("+BRL(frete*pctExportacao/100)+")",{green:true},yRa);
-    debRow(xR,"Base tributável",BRL(baseExec),{bold:true},yRa);
-    debRow(xR,"× CBS "+m.cbs+"%",BRL(cbsDeb_),{red:true},yRa);
-    if(m.ibs>0) debRow(xR,"× IBS "+m.ibs+"%",BRL(ibsDeb_),{red:true},yRa);
+    if(pctExportacao>0) debRow(xR,"(-) Exporta\u00e7\u00e3o "+pctExportacao+"%","("+BRL(frete*pctExportacao/100)+")",{green:true},yRa);
+    debRow(xR,"Base tribut\u00e1vel",BRL(baseExec),{bold:true},yRa);
+    debRow(xR,"\u00d7 CBS "+m.cbs+"%",BRL(cbsDeb_),{red:true},yRa);
+    if(m.ibs>0) debRow(xR,"\u00d7 IBS "+m.ibs+"%",BRL(ibsDeb_),{red:true},yRa);
     yR=yRa[0];
-
     doc.setFillColor(255,241,241); doc.rect(xR,yR,colW,11,"F");
     doc.setFillColor(...RD); doc.rect(xR,yR,3,11,"F");
     doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(...RD);
-    doc.text("DÉBITO "+(m.ibs>0?"CBS + IBS":"CBS"),xR+6,yR+5.5);
+    doc.text("D\u00c9BITO "+(m.ibs>0?"CBS + IBS":"CBS"),xR+6,yR+5.5);
     doc.setFontSize(11); doc.text(BRL(cbsDeb_+ibsDeb_),xR+colW-2,yR+8,{align:"right"});
     yR+=14;
-
     doc.setFont("helvetica","bold"); doc.setFontSize(6); doc.setTextColor(...LG);
-    doc.text("CRÉDITOS CBS"+(m.ibs>0?" + IBS":""),xR+2,yR+4);
+    doc.text("CR\u00c9DITOS CBS"+(m.ibs>0?" + IBS":""),xR+2,yR+4);
     doc.setFont("helvetica","normal"); doc.setFontSize(5.5); doc.setTextColor(...LG);
-    doc.text("PF: "+BRL(baseTerN)+"  ·  SN/PJN: "+BRL(baseTerTax),xR+colW-2,yR+4,{align:"right"});
+    doc.text("PF: "+BRL(baseTerN)+"  \u00b7  SN/PJN: "+BRL(baseTerTax),xR+colW-2,yR+4,{align:"right"});
     yR+=8;
-
     const yRb=[yR];
-    credCard(xR,"PF · Autônomo",mixAutonomo,cbsCrPF_,
-      BRL(bPF_)+" × 20% = "+BRL(bPF_*0.2)+" → × "+m.cbs+"%",[180,83,9],yRb);
-    credCard(xR,"PJSN · Simples Nacional",mixSN,cbsCrSN_,
-      BRL(bSN_cbs)+" × "+CBS_CRED.simplesNacional+"%",[29,91,215],yRb);
-    credCard(xR,"PJN · "+(regimeLucroTerceiros==="Lucro Real"?"LR":"LP"),mixLucro,cbsCrPJN_,
-      BRL(bPJN_cbs)+" × "+lucroRateTerceiros+"%",[22,163,74],yRb);
+    credCard(xR,"PF \u00b7 Aut\u00f4nomo",mixAutonomo,cbsCrPF_,
+      BRL(bPF_)+" \u00d7 20% = "+BRL(bPF_*0.2)+" \u2192 \u00d7 "+m.cbs+"%",[180,83,9],yRb);
+    credCard(xR,"PJSN \u00b7 Simples Nacional",mixSN,cbsCrSN_,
+      BRL(bSN_cbs)+" \u00d7 "+CBS_CRED.simplesNacional+"%",[29,91,215],yRb);
+    credCard(xR,"PJN \u00b7 "+(regimeLucroTerceiros==="Lucro Real"?"LR":"LP"),mixLucro,cbsCrPJN_,
+      BRL(bPJN_cbs)+" \u00d7 "+lucroRateTerceiros+"%",[22,163,74],yRb);
     if(m.ibs>0){
       doc.setFillColor(...BG); doc.rect(xR,yRb[0],colW,10,"F");
       doc.setFillColor(147,51,234); doc.rect(xR,yRb[0],2.5,10,"F");
       doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...DK);
-      doc.text("Créditos IBS "+m.ibs+"%",xR+5,yRb[0]+5.5);
+      doc.text("Cr\u00e9ditos IBS "+m.ibs+"%",xR+5,yRb[0]+5.5);
       doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(147,51,234);
       doc.text(BRL(ibsCrTot_),xR+colW-2,yRb[0]+6,{align:"right"});
       yRb[0]+=12;
     }
     yR=yRb[0];
-
     doc.setFillColor(240,253,244); doc.rect(xR,yR,colW,11,"F");
     doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(...GN);
-    doc.text("Total créditos",xR+3,yR+6.5);
+    doc.text("Total cr\u00e9ditos",xR+3,yR+6.5);
     doc.setFontSize(11); doc.text(BRL(cbsCrTot_+ibsCrTot_),xR+colW-2,yR+7.5,{align:"right"});
     yR+=14;
-
     const cCr=cbsCusto_<=0?GN:RD;
     doc.setFillColor(...(cbsCusto_<=0?[240,253,244]:[255,241,241]));
     doc.setDrawColor(...cCr); doc.setLineWidth(0.5); doc.rect(xR,yR,colW,19,"FD");
     doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...GR);
-    doc.text("Créditos: +"+BRL(cbsCrTot_+ibsCrTot_),xR+4,yR+6);
-    doc.text("Débito:   -"+BRL(cbsDeb_+ibsDeb_),xR+4,yR+11);
+    doc.text("Cr\u00e9ditos: +"+BRL(cbsCrTot_+ibsCrTot_),xR+4,yR+6);
+    doc.text("D\u00e9bito:   -"+BRL(cbsDeb_+ibsDeb_),xR+4,yR+11);
     doc.setDrawColor(...cCr); doc.setLineWidth(0.3); doc.line(xR+3,yR+12.5,xR+colW-3,yR+12.5);
     doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(...cCr);
-    doc.text("→ "+(cbsCusto_<=0?"CREDOR":"CBS A PAGAR"),xR+4,yR+17);
+    doc.text("\u2192 "+(cbsCusto_<=0?"CREDOR":"CBS A PAGAR"),xR+4,yR+17);
     doc.setFontSize(13); doc.text(BRL(Math.abs(cbsCusto_)),xR+colW-2,yR+17,{align:"right"});
     yR+=23;
 
-    // ── COMPARATIVO ──
+    // ── DISCLAIMER p2 ──
     y=Math.max(yL,yR)+6;
-    if(y+42>278){doc.addPage();frame();y=20;}
-    const diff=cbsCusto_-pisCusto_;
-    const dCor=diff>0?RD:GN;
-    doc.setFillColor(...BG); doc.setDrawColor(...BD); doc.setLineWidth(0.25);
-    doc.rect(mg,y,cw,40,"FD");
-    doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(...GR);
-    doc.text("COMPARATIVO — HOJE vs REFORMA",mg+4,y+6);
-    doc.setDrawColor(...BD); doc.setLineWidth(0.2); doc.line(mg+3,y+8,mg+cw-3,y+8);
-
-    const hw=cw/2-4;
-    [{l:"Hoje — PIS/COFINS "+aliqPIS+"%",v:Math.abs(pisCusto_),s:(pisCusto_<=0?"CREDOR":"DEVEDOR"),c:pisCusto_<=0?GN:RD},
-     {l:"Reforma "+m.ano+"  —  CBS"+(m.ibs>0?" + IBS":"")+" "+m.total+"%",v:Math.abs(cbsCusto_),s:(cbsCusto_<=0?"CREDOR":"CBS A PAGAR"),c:cbsCusto_<=0?GN:RD}]
-    .forEach((item,i)=>{
-      const cx=mg+3+i*(hw+8);
-      doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(...LG);
-      doc.text(item.l,cx,y+14);
-      doc.setFont("helvetica","bold"); doc.setFontSize(13); doc.setTextColor(...item.c);
-      doc.text(BRL(item.v),cx,y+22);
-      doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...item.c);
-      doc.text(item.s,cx,y+27);
-    });
-    doc.setDrawColor(...BD); doc.setLineWidth(0.4);
-    doc.line(mg+cw/2,y+10,mg+cw/2,y+30);
-
-    doc.setFillColor(...(diff>0?[255,241,241]:[240,253,244]));
-    doc.rect(mg+3,y+31,cw-6,6,"F");
-    doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(...dCor);
-    doc.text((diff>0?"▲ Custo adicional":"▼ Economia")+" vs hoje:  "+(diff>0?"+":"")+BRL(diff),mg+cw/2,y+35.5,{align:"center"});
-    y+=46;
-
-    // ── DISCLAIMER ──
-    if(y>268){doc.addPage();frame();y=20;}
-    y+=3;
+    if(y>270){y=270;}
     doc.setDrawColor(...BD); doc.setLineWidth(0.25); doc.line(mg,y,W-mg,y); y+=5;
     doc.setFont("helvetica","italic"); doc.setFontSize(6.5); doc.setTextColor(...LG);
-    doc.splitTextToSize("Este documento é de caráter informativo e não substitui uma consulta tributária especializada. Os valores são estimativas baseadas nos parâmetros informados e nas alíquotas previstas na LC 214/2025.",cw)
+    doc.splitTextToSize("Este documento \u00e9 de car\u00e1ter informativo e n\u00e3o substitui uma consulta tribut\u00e1ria especializada. Os valores s\u00e3o estimativas baseadas nos par\u00e2metros informados e nas al\u00edquotas previstas na LC 214/2025.",cw)
       .forEach(l=>{doc.text(l,mg,y);y+=3.8;});
+    doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(...LG);
+    doc.text("P\u00e1gina 2 de 2",W-mg,y+2,{align:"right"});
 
-    doc.save("RumoBrasil_Terceirizacao_"+m.ano+"_"+new Date().toISOString().slice(0,10)+".pdf");
+    doc.save("RumoBrasil_Diagnostico_Tributario_"+m.ano+"_"+new Date().toISOString().slice(0,10)+".pdf");
   };
 
 
@@ -1553,8 +1655,131 @@ function Oracle(){
 }
 
 
+// ══════════════════════════════════════════════════════════
+// GUIA — COMO USAR O SIMULADOR
+// ══════════════════════════════════════════════════════════
+function Guia(){
+  const {isMob}=useContext(Ctx);
+
+  const steps=[
+    {n:"01",titulo:"Informe o faturamento mensal",
+     desc:"Digite o valor total bruto que sua empresa recebe de fretes por mês. Este número é a base de toda a simulação — o débito tributário é sempre calculado sobre ele.",
+     tip:"Use o faturamento bruto, antes de qualquer dedução de custo ou imposto.",cor:C.brand},
+    {n:"02",titulo:"Defina o mix de fornecedores terceirizados",
+     desc:"Distribua o percentual dos seus prestadores entre três perfis: Autônomo (PF), Simples Nacional (PJSN) e Lucro Presumido/Real (PJN). A soma deve totalizar 100%.",
+     tip:"O mix é o fator mais importante. PJN gera crédito CBS de 9,3% — o mais alto. PF gera apenas 1,86%.",cor:C.blue},
+    {n:"03",titulo:"Informe a margem dos terceiros",
+     desc:"Qual o percentual do faturamento que você efetivamente paga aos seus prestadores? Ex: se repassa 85% do frete ao transportador, a margem é 85%.",
+     tip:"Somente o valor pago ao prestador gera crédito. Quanto maior a margem, maior a base de créditos.",cor:C.purple},
+    {n:"04",titulo:"Configure exportação e regime da empresa",
+     desc:"Se parte do faturamento é de frete internacional, informe o percentual — exportações são imunes a CBS/IBS e reduzem o débito. O regime tributário da sua empresa afeta a alíquota de PIS/COFINS (9,25% para LP/LR ou 3,65% para SN).",
+     tip:"Empresas com alta exportação se beneficiam mais da reforma: o débito cai, mas os créditos são mantidos.",cor:C.teal},
+    {n:"05",titulo:"Escolha o ano da simulação",
+     desc:"Selecione qual marco da transição tributária você quer analisar — de 2027 (CBS entra) até 2033 (IVA Dual pleno com CBS 9,3% + IBS 18,7%). Cada ano tem alíquotas de IBS diferentes.",
+     tip:"Simule 2027 e 2033 para ver o intervalo completo de impacto no seu negócio ao longo da transição.",cor:C.amber},
+    {n:"06",titulo:"Interprete os resultados",
+     desc:"O simulador exibe lado a lado: o custo de hoje com PIS/COFINS e o custo futuro com CBS+IBS. CREDOR significa que seus créditos superam o débito — você tem saldo a recuperar. A PAGAR significa custo tributário líquido mensal.",
+     tip:"Fornecedores PJN (Lucro Presumido/Real) geram o maior crédito. Reveja seu mix de parceiros para maximizar o benefício da reforma.",cor:C.green},
+  ];
+
+  const glossario=[
+    {t:"CBS",d:"Contribuição sobre Bens e Serviços — substitui PIS e COFINS a partir de 2027. Alíquota nominal de 9,3%."},
+    {t:"IBS",d:"Imposto sobre Bens e Serviços — substitui ICMS e ISS. Entra em vigor progressivamente a partir de 2029, chegando a 18,7% em 2033."},
+    {t:"IVA Dual",d:"CBS + IBS somados. Em 2033 totalizam 28% nominal, mas com aproveitamento pleno de crédito a carga efetiva cai significativamente."},
+    {t:"Débito",d:"O valor do imposto que sua empresa deve ao governo sobre o faturamento. Calculado: base tributável × alíquota."},
+    {t:"Crédito",d:"Valor abatível do débito, gerado quando seu fornecedor paga imposto na origem. Na reforma, o crédito é muito mais amplo e transparente do que no sistema atual."},
+    {t:"Credor",d:"Situação em que o total de créditos supera o total de débitos. A empresa tem saldo positivo a recuperar — não paga CBS/IBS naquele período."},
+    {t:"Mix PF/PJSN/PJN",d:"A composição do perfil jurídico dos seus prestadores terceirizados. PF = Autônomo (crédito 1,86%), PJSN = Simples Nacional (crédito 2,3%), PJN = Lucro Presumido/Real (crédito 9,3%)."},
+    {t:"Margem terceiros",d:"Percentual do faturamento repassado aos prestadores de serviço. Define a base de cálculo dos créditos tributários."},
+    {t:"LC 214/2025",d:"Lei Complementar que regulamenta a Reforma Tributária do consumo no Brasil, estabelecendo CBS, IBS e a extinção de PIS, COFINS, ICMS e ISS."},
+    {t:"Base tributável",d:"Faturamento após dedução de exportações e outras imunidades. É a base sobre a qual se aplica a alíquota para calcular o débito."},
+  ];
+
+  const faqs=[
+    {p:"Por que meu resultado pode ser CREDOR na reforma?",
+     r:"Porque a reforma introduz um sistema de crédito não-cumulativo e muito mais abrangente. Se você usa prestadores PJN (Lucro Presumido/Real), o crédito CBS de 9,3% pode superar o débito sobre seu faturamento — especialmente se você exportar parte do frete."},
+    {p:"O que acontece com PIS e COFINS?",
+     r:"PIS e COFINS são extintos em janeiro de 2027, substituídos pela CBS. O cálculo atual no simulador é sua referência do 'mundo de hoje', para comparação com o futuro."},
+    {p:"Preciso tomar alguma ação agora?",
+     r:"Não imediatamente — a reforma começa em 2027. Mas é o momento ideal para entender seu perfil tributário e, se necessário, renegociar contratos com prestadores para maximizar o crédito CBS futuro."},
+    {p:"Os resultados são garantidos?",
+     r:"Não. Este simulador usa estimativas baseadas nas alíquotas previstas na LC 214/2025. A carga efetiva final dependerá de regulamentação complementar, enquadramento fiscal específico da empresa e decisões de gestão."},
+  ];
+
+  const card={background:C.bg1,border:"1px solid "+C.border,borderRadius:10,padding:"20px 24px"};
+
+  return(
+    <div style={{maxWidth:900,margin:"0 auto",padding:isMob?"16px":"32px 16px"}}>
+
+      {/* Hero */}
+      <div style={{background:"linear-gradient(135deg,#FF8200 0%,#CC4400 100%)",borderRadius:12,padding:isMob?"24px 20px":"32px 40px",color:"#fff",marginBottom:32}}>
+        <div style={{fontFamily:F.sans,fontSize:10,fontWeight:600,letterSpacing:2,opacity:0.75,marginBottom:8,textTransform:"uppercase"}}>Guia de Uso</div>
+        <div style={{fontFamily:F.sans,fontSize:isMob?20:26,fontWeight:700,lineHeight:1.25,marginBottom:12}}>Como usar o Simulador de Impacto Tributário</div>
+        <div style={{fontFamily:F.sans,fontSize:13,opacity:0.88,lineHeight:1.65,maxWidth:560}}>
+          Este simulador estima o impacto da Reforma Tributária (CBS+IBS · LC 214/2025) na sua operação de transporte terceirizado, comparando com o regime atual de PIS/COFINS.
+        </div>
+      </div>
+
+      {/* Passo a passo */}
+      <div style={{marginBottom:40}}>
+        <div style={{fontFamily:F.sans,fontSize:16,fontWeight:700,color:C.text,marginBottom:16}}>Passo a passo</div>
+        <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          {steps.map(s=>(
+            <div key={s.n} style={{...card,display:"flex",gap:16,alignItems:"flex-start",padding:"16px 20px"}}>
+              <div style={{minWidth:36,height:36,borderRadius:18,background:s.cor,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:F.mono,fontSize:12,fontWeight:700,color:"#fff",flexShrink:0}}>
+                {s.n}
+              </div>
+              <div style={{flex:1}}>
+                <div style={{fontFamily:F.sans,fontSize:13,fontWeight:700,color:C.text,marginBottom:5}}>{s.titulo}</div>
+                <div style={{fontFamily:F.sans,fontSize:12.5,color:C.text2,lineHeight:1.6,marginBottom:8}}>{s.desc}</div>
+                <div style={{fontFamily:F.sans,fontSize:11.5,color:s.cor,background:s.cor+"1A",borderRadius:6,padding:"5px 10px",display:"inline-block",lineHeight:1.5}}>
+                  {s.tip}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Glossário */}
+      <div style={{marginBottom:40}}>
+        <div style={{fontFamily:F.sans,fontSize:16,fontWeight:700,color:C.text,marginBottom:16}}>Glossário</div>
+        <div style={{...card,padding:0,overflow:"hidden"}}>
+          {glossario.map((g,i)=>(
+            <div key={g.t} style={{display:"flex",gap:12,padding:"13px 20px",borderTop:i>0?"1px solid "+C.border:"none",alignItems:"flex-start"}}>
+              <div style={{minWidth:140,fontFamily:F.mono,fontSize:10.5,fontWeight:700,color:C.brand,paddingTop:1,flexShrink:0}}>{g.t}</div>
+              <div style={{fontFamily:F.sans,fontSize:12.5,color:C.text2,lineHeight:1.55}}>{g.d}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* FAQ */}
+      <div style={{marginBottom:40}}>
+        <div style={{fontFamily:F.sans,fontSize:16,fontWeight:700,color:C.text,marginBottom:16}}>Perguntas frequentes</div>
+        <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          {faqs.map((faq,i)=>(
+            <div key={i} style={{...card}}>
+              <div style={{fontFamily:F.sans,fontSize:13,fontWeight:700,color:C.text,marginBottom:8}}>{faq.p}</div>
+              <div style={{fontFamily:F.sans,fontSize:12.5,color:C.text2,lineHeight:1.6}}>{faq.r}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* CTA */}
+      <div style={{...card,textAlign:"center",padding:"24px"}}>
+        <div style={{fontFamily:F.sans,fontSize:12.5,color:C.text2,marginBottom:4}}>Pronto para simular?</div>
+        <div style={{fontFamily:F.sans,fontSize:14,fontWeight:700,color:C.text}}>
+          Acesse a aba <span style={{color:C.brand}}>Simulador</span> e insira os dados da sua operação.
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── TABS ──
-const TABS=[{id:"painel",label:"Painel"},{id:"oracle",label:"Simulador"}];
+const TABS=[{id:"painel",label:"Painel"},{id:"oracle",label:"Simulador"},{id:"guia",label:"Como Usar"}];
 
 // ── APP ──
 export default function App(){
@@ -1689,7 +1914,7 @@ export default function App(){
         </div>
 
         {/* Conteúdo */}
-        <div key={tab}>{tab==="painel"?<Painel/>:<Oracle/>}</div>
+        <div key={tab}>{tab==="painel"?<Painel/>:tab==="guia"?<Guia/>:<Oracle/>}</div>
 
         {/* Footer */}
         <div style={{background:C.bg1,borderTop:"1px solid "+C.border,padding:"6px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
