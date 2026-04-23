@@ -971,7 +971,28 @@ function Oracle(){
       logoData=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(blob);});
     }catch(_){}
 
+    // Noto Sans TTF (subset latin)
+    let notoR=null,notoB=null;
+    try{
+      const u8b64=async url=>{
+        const buf=await fetch(url).then(r=>r.arrayBuffer());
+        const bytes=new Uint8Array(buf);
+        let s=''; for(let i=0;i<bytes.byteLength;i++) s+=String.fromCharCode(bytes[i]);
+        return btoa(s);
+      };
+      [notoR,notoB]=await Promise.all([u8b64('/fonts/NotoSans-Regular.ttf'),u8b64('/fonts/NotoSans-Bold.ttf')]);
+    }catch(_){}
+
     const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+    const PF=notoR&&notoB?'NotoSans':'helvetica';
+    if(notoR&&notoB){
+      doc.addFileToVFS('NotoSans-Regular.ttf',notoR);
+      doc.addFileToVFS('NotoSans-Bold.ttf',notoB);
+      doc.addFont('NotoSans-Regular.ttf','NotoSans','normal');
+      doc.addFont('NotoSans-Bold.ttf','NotoSans','bold');
+    }
+    const sf=w=>doc.setFont(PF,w);
+
     const frame=()=>{
       doc.setFillColor(...OR); doc.rect(0,0,W,4,"F");
       doc.setFillColor(...OR); doc.rect(0,H-3.5,W,3.5,"F");
@@ -982,38 +1003,38 @@ function Oracle(){
     // ══════════════════════════════════════════════
     frame();
 
-    // ── HEADER ──
+    // ── HEADER P1 ──
     if(logoData) doc.addImage(logoData,"PNG",mg,6,18,18);
-    const tx=mg+22;
-    doc.setFont("helvetica","bold"); doc.setFontSize(15); doc.setTextColor(...DK);
-    doc.text("Diagn\u00f3stico de Impacto Tribut\u00e1rio",tx,13);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(...OR);
-    doc.text("Reforma Tribut\u00e1ria \u00b7 Terceiriza\u00e7\u00e3o de Fretes \u00b7 LC 214/2025",tx,19);
-    doc.setFontSize(7); doc.setTextColor(...LG);
+    sf("bold"); doc.setFontSize(14); doc.setTextColor(...DK);
+    doc.text("Diagn\u00f3stico de Impacto Tribut\u00e1rio",mg+22,13);
+    sf("normal"); doc.setFontSize(8.5); doc.setTextColor(...OR);
+    doc.text("Reforma Tribut\u00e1ria \u00b7 Terceiriza\u00e7\u00e3o de Fretes \u00b7 LC\u00a0214/2025",mg+22,19);
+    doc.setFontSize(6.5); doc.setTextColor(...LG);
     doc.text("Gerado em "+new Date().toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"})
-      +"   \u00b7   Simula\u00e7\u00e3o para o ano de "+m.ano+" \u2014 "+m.label,tx,24);
+      +"  \u00b7  Simula\u00e7\u00e3o: "+m.ano+" \u2014 "+m.label,mg+22,24.5);
     doc.setDrawColor(...BD); doc.setLineWidth(0.3); doc.line(mg,27,W-mg,27);
 
     // ── PARÂMETROS ──
     let y=30;
-    doc.setFillColor(...BG); doc.rect(mg,y,cw,22,"F");
-    doc.setDrawColor(...BD); doc.setLineWidth(0.2); doc.rect(mg,y,cw,22,"S");
+    doc.setFillColor(...BG); doc.setDrawColor(...BD); doc.setLineWidth(0.2);
+    doc.rect(mg,y,cw,22,"FD");
     const ps=cw/4;
     [{l:"Faturamento / m\u00eas",v:BRL(frete)},{l:"Exporta\u00e7\u00e3o",v:pctExportacao+"%"},
      {l:"Margem terceiros",v:margemTerceiros+"%"},{l:"Regime",v:regime}]
     .forEach((p,i)=>{
       const px=mg+i*ps+4;
-      doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(...LG);
+      sf("normal"); doc.setFontSize(6); doc.setTextColor(...LG);
       doc.text(p.l,px,y+6);
-      doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(...DK);
+      sf("bold"); doc.setFontSize(9.5); doc.setTextColor(...DK);
       doc.text(p.v,px,y+13);
     });
-    doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(...GR);
-    doc.text("Mix de fornecedores:  PF (Aut\u00f4nomo) "+mixAutonomo+"%  \u00b7  PJSN (Simples Nacional) "+mixSN+"%  \u00b7  PJN (Lucro Presumido/Real) "+mixLucro+"%",mg+4,y+19.5);
+    sf("normal"); doc.setFontSize(6.5); doc.setTextColor(...GR);
+    doc.text("Mix:  PF "+mixAutonomo+"%  \u00b7  PJSN "+mixSN+"%  \u00b7  PJN "+mixLucro+"%"
+      +(mixLucro>0?"  (\u2192 "+regimeLucroTerceiros+")":""),mg+4,y+19.5);
     y+=25;
 
     // ── DIAGNÓSTICO: HOJE vs REFORMA ──
-    doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(...GR);
+    sf("bold"); doc.setFontSize(6.5); doc.setTextColor(...GR);
     doc.text("DIAGN\u00d3STICO \u2014 RESULTADO MENSAL ESTIMADO",mg,y+5);
     doc.setDrawColor(...BD); doc.setLineWidth(0.15); doc.line(mg,y+7,W-mg,y+7);
     y+=10;
@@ -1025,15 +1046,15 @@ function Oracle(){
     doc.setDrawColor(...pisCr); doc.setLineWidth(0.5);
     doc.rect(mg,y,dw,38,"FD");
     doc.setFillColor(...pisCr); doc.rect(mg,y,dw,5,"F");
-    doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(255,255,255);
+    sf("bold"); doc.setFontSize(7); doc.setTextColor(255,255,255);
     doc.text("HOJE \u2014 PIS/COFINS "+aliqPIS+"%",mg+4,y+3.5);
-    doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...GR);
+    sf("normal"); doc.setFontSize(7.5); doc.setTextColor(...GR);
     doc.text("Custo tribut\u00e1rio mensal estimado",mg+4,y+12);
-    doc.setFont("helvetica","bold"); doc.setFontSize(20); doc.setTextColor(...pisCr);
+    sf("bold"); doc.setFontSize(20); doc.setTextColor(...pisCr);
     doc.text(BRL(Math.abs(pisCusto_)),mg+dw/2,y+24,{align:"center"});
-    doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(...pisCr);
+    sf("bold"); doc.setFontSize(8); doc.setTextColor(...pisCr);
     doc.text(pisTxt,mg+dw/2,y+30,{align:"center"});
-    doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(...GR);
+    sf("normal"); doc.setFontSize(6.5); doc.setTextColor(...GR);
     doc.text("D\u00e9bito: "+BRL(pisDeb_)+"  \u00b7  Cr\u00e9dito: "+BRL(pisCrTot_),mg+dw/2,y+35.5,{align:"center"});
 
     const cbsCr=cbsCusto_<=0?GN:RD;
@@ -1043,15 +1064,15 @@ function Oracle(){
     const rx=mg+dw+6;
     doc.rect(rx,y,dw,38,"FD");
     doc.setFillColor(...cbsCr); doc.rect(rx,y,dw,5,"F");
-    doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(255,255,255);
+    sf("bold"); doc.setFontSize(7); doc.setTextColor(255,255,255);
     doc.text("REFORMA "+m.ano+" \u2014 CBS"+(m.ibs>0?" + IBS":"")+" "+m.total+"%",rx+4,y+3.5);
-    doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...GR);
+    sf("normal"); doc.setFontSize(7.5); doc.setTextColor(...GR);
     doc.text("Custo tribut\u00e1rio mensal estimado",rx+4,y+12);
-    doc.setFont("helvetica","bold"); doc.setFontSize(20); doc.setTextColor(...cbsCr);
+    sf("bold"); doc.setFontSize(20); doc.setTextColor(...cbsCr);
     doc.text(BRL(Math.abs(cbsCusto_)),rx+dw/2,y+24,{align:"center"});
-    doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(...cbsCr);
+    sf("bold"); doc.setFontSize(8); doc.setTextColor(...cbsCr);
     doc.text(cbsTxt,rx+dw/2,y+30,{align:"center"});
-    doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(...GR);
+    sf("normal"); doc.setFontSize(6.5); doc.setTextColor(...GR);
     doc.text("D\u00e9bito: "+BRL(cbsDeb_+ibsDeb_)+"  \u00b7  Cr\u00e9dito: "+BRL(cbsCrTot_+ibsCrTot_),rx+dw/2,y+35.5,{align:"center"});
     y+=42;
 
@@ -1059,193 +1080,253 @@ function Oracle(){
     const dCor=diff>0?RD:GN;
     doc.setFillColor(...(diff>0?[255,241,241]:[240,253,244]));
     doc.setDrawColor(...dCor); doc.setLineWidth(0.3); doc.rect(mg,y,cw,10,"FD");
-    doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(...dCor);
+    sf("bold"); doc.setFontSize(9); doc.setTextColor(...dCor);
     const diffTxt=(diff>0?"\u25b2 Custo adicional de ":"\u25bc Economia de ")+BRL(Math.abs(diff))+"/m\u00eas com a reforma tribut\u00e1ria em "+m.ano;
     doc.text(diffTxt,mg+cw/2,y+6.5,{align:"center"});
     y+=14;
 
-    // ── O QUE ESTÁ ACONTECENDO ──
-    doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(...GR);
-    doc.text("O QUE EST\u00c1 ACONTECENDO",mg,y+5);
+    // ── ANÁLISE E RECOMENDAÇÕES (insights dinâmicos) ──
+    sf("bold"); doc.setFontSize(6.5); doc.setTextColor(...GR);
+    doc.text("AN\u00c1LISE E RECOMENDA\u00c7\u00d5ES",mg,y+5);
     doc.setDrawColor(...BD); doc.setLineWidth(0.15); doc.line(mg,y+7,W-mg,y+7);
     y+=10;
-    doc.setFillColor(...BG); doc.rect(mg,y,cw,34,"F");
-    doc.setFillColor(...OR); doc.rect(mg,y,3,34,"F");
-    const p1=doc.splitTextToSize(
-      "A Reforma Tribut\u00e1ria brasileira (LC 214/2025) extingue PIS e COFINS em janeiro de 2027, substituindo-os pela CBS (Contribui\u00e7\u00e3o sobre Bens e Servi\u00e7os) com al\u00edquota de 9,3%. A partir de 2029, o IBS (Imposto sobre Bens e Servi\u00e7os) entra progressivamente, chegando a 18,7% em 2033 \u2014 totalizando 28% de IVA Dual nominal.",
-      cw-12);
-    doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...GR);
-    p1.forEach((l,i)=>doc.text(l,mg+6,y+7+i*5));
-    const p2=doc.splitTextToSize(
-      "A grande mudan\u00e7a para o TRC: o cr\u00e9dito tribut\u00e1rio torna-se n\u00e3o-cumulativo e muito mais amplo. Prestadores PJN (Lucro Presumido/Real) geram cr\u00e9dito CBS de 9,3% \u2014 reduzindo significativamente a carga final de empresas com mix qualificado.",
-      cw-12);
-    const p2y=y+7+p1.length*5+3;
-    doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(...DK);
-    p2.forEach((l,i)=>doc.text(l,mg+6,p2y+i*5));
-    y+=38;
+
+    const pctVar=pisCusto_!==0?Math.abs((cbsCusto_-pisCusto_)/Math.abs(pisCusto_)*100):0;
+    const mixN_=mixAutonomo+mixSN+mixLucro||1;
+    const insights=[
+      // resultado
+      cbsCusto_<=0&&pisCusto_<=0 ? {
+        tipo:cbsCusto_<pisCusto_?"pos":"alerta",
+        t:cbsCusto_<pisCusto_?"Posi\u00e7\u00e3o credora melhora na reforma":"Posi\u00e7\u00e3o credora reduz na reforma",
+        d:cbsCusto_<pisCusto_?
+          "Hoje sua empresa \u00e9 credora de "+BRL(Math.abs(pisCusto_))+"/m\u00eas. Com a reforma em "+m.ano+", a posi\u00e7\u00e3o credora cresce para "+BRL(Math.abs(cbsCusto_))+" \u2014 ganho de "+BRL(Math.abs(cbsCusto_-pisCusto_))+"." :
+          "Hoje sua empresa \u00e9 credora de "+BRL(Math.abs(pisCusto_))+"/m\u00eas. Com a reforma em "+m.ano+", a posi\u00e7\u00e3o credora cai para "+BRL(Math.abs(cbsCusto_))+" \u2014 redu\u00e7\u00e3o de "+BRL(Math.abs(cbsCusto_-pisCusto_))+"."
+      } : cbsCusto_<=0 ? {
+        tipo:"pos",
+        t:"Reforma inverte posi\u00e7\u00e3o: empresa passa a ser CREDORA",
+        d:"Hoje paga "+BRL(Math.abs(pisCusto_))+"/m\u00eas de PIS/COFINS. Com a reforma em "+m.ano+", a posi\u00e7\u00e3o inverte: saldo CREDOR de "+BRL(Math.abs(cbsCusto_))+"/m\u00eas \u2014 melhora total de "+BRL(Math.abs(cbsCusto_-pisCusto_))+"."
+      } : (cbsCusto_-pisCusto_)<=0 ? {
+        tipo:"pos",
+        t:"Reforma reduz a carga tribut\u00e1ria",
+        d:"Custo mensal cai de "+BRL(Math.abs(pisCusto_))+" para "+BRL(Math.abs(cbsCusto_))+" \u2014 redu\u00e7\u00e3o de "+BRL(Math.abs(cbsCusto_-pisCusto_))+"/m\u00eas. O cr\u00e9dito n\u00e3o-cumulativo beneficia sua opera\u00e7\u00e3o."
+      } : {
+        tipo:"alerta",
+        t:"Custo tribut\u00e1rio aumenta com a reforma",
+        d:"Custo sobe de "+BRL(Math.abs(pisCusto_))+" para "+BRL(Math.abs(cbsCusto_))+" (+"+BRL(cbsCusto_-pisCusto_)+"/m\u00eas, +"+pctVar.toFixed(0)+"%). Avaliar renegocia\u00e7\u00e3o do mix de fornecedores pode reverter esse cen\u00e1rio."
+      },
+      // mix
+      (mixAutonomo+mixSN+mixLucro)===0 ? {
+        tipo:"alerta",t:"Mix de fornecedores n\u00e3o informado",
+        d:"Preencha o percentual de PF, PJSN e PJN para calcular os cr\u00e9ditos CBS com precis\u00e3o e obter um diagn\u00f3stico completo."
+      } : mixLucro>=50 ? {
+        tipo:"pos",t:"Mix favor\u00e1vel \u2014 predomin\u00e2ncia de PJN ("+mixLucro+"%)",
+        d:"PJN gera o maior cr\u00e9dito CBS: "+lucroRateTerceiros+"%. Com "+mixLucro+"% do frete nesse perfil, sua empresa maximiza os benef\u00edcios da reforma tribut\u00e1ria."
+      } : mixAutonomo>=50 ? {
+        tipo:"alerta",t:"Oportunidade: migrar aut\u00f4nomos ("+mixAutonomo+"%) para PJN",
+        d:"Aut\u00f4nomos (PF) geram apenas 1,86% de cr\u00e9dito CBS \u2014 o menor entre os regimes. Migrar parte para PJN pode reduzir significativamente a carga tribut\u00e1ria futura."
+      } : {
+        tipo:"info",t:"Mix diversificado \u2014 cr\u00e9dito m\u00e9dio CBS de "+calcCBSCredito(mixAutonomo,mixSN,mixLucro,lucroRateTerceiros).toFixed(2)+"%",
+        d:"PF "+mixAutonomo+"% / PJSN "+mixSN+"% / PJN "+mixLucro+"%. Aumentar a participa\u00e7\u00e3o de PJN (cr\u00e9dito 9,3%) eleva os benef\u00edcios da reforma."
+      },
+      // contexto
+      pctExportacao>=20 ? {
+        tipo:"pos",t:"Exporta\u00e7\u00e3o ("+pctExportacao+"%) reduz d\u00e9bito CBS/IBS",
+        d:"Fretes internacionais s\u00e3o imunes a CBS/IBS. Esse percentual representa "+BRL(frete*pctExportacao/100*m.cbs/100)+" poupados em d\u00e9bito CBS/m\u00eas \u2014 benef\u00edcio mantido na reforma."
+      } : m.ano>=2029 ? {
+        tipo:"info",t:"IBS ativo em "+m.ano+" \u2014 carga nominal "+m.total+"%",
+        d:"A partir de 2029 o IBS se soma \u00e0 CBS. A carga nominal de "+m.total+"% \u00e9 reduzida pelo cr\u00e9dito pleno dos prestadores. Simule 2027 (s\u00f3 CBS) para comparar."
+      } : {
+        tipo:"info",t:"Planeje-se para a transi\u00e7\u00e3o completa",
+        d:"Em "+m.ano+" apenas CBS ("+m.cbs+"%) est\u00e1 ativa. O IBS come\u00e7a em 2029 e chega a 28% total em 2033. Negociar contratos com PJN agora garante posi\u00e7\u00e3o vantajosa."
+      },
+    ];
+
+    insights.forEach(ins=>{
+      const IC=ins.tipo==="pos"?GN:ins.tipo==="alerta"?RD:OR;
+      const IB=ins.tipo==="pos"?[240,253,244]:ins.tipo==="alerta"?[255,241,241]:[255,248,240];
+      doc.setFillColor(...IB); doc.rect(mg,y,cw,18,"F");
+      doc.setFillColor(...IC); doc.rect(mg,y,3,18,"F");
+      sf("bold"); doc.setFontSize(7); doc.setTextColor(...IC);
+      doc.text(ins.t,mg+6,y+6);
+      sf("normal"); doc.setFontSize(6.5); doc.setTextColor(...DK);
+      doc.splitTextToSize(ins.d,cw-10).slice(0,2).forEach((l,i)=>doc.text(l,mg+6,y+11+i*4.5));
+      y+=19;
+    });
+    y+=1;
 
     // ── CRONOGRAMA ──
-    doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(...GR);
+    sf("bold"); doc.setFontSize(6.5); doc.setTextColor(...GR);
     doc.text("CRONOGRAMA DA TRANSI\u00c7\u00c3O",mg,y+5);
     doc.setDrawColor(...BD); doc.setLineWidth(0.15); doc.line(mg,y+7,W-mg,y+7);
     y+=10;
     const tlW=cw/MILES.length;
     MILES.forEach((mile,i)=>{
-      const tx2=mg+i*tlW;
-      const isA=mile.ano===m.ano;
-      const mc=h2r(mile.cor);
-      if(isA){doc.setFillColor(...mc);}else{doc.setFillColor(240,240,243);}
-      doc.rect(tx2,y,tlW-1,20,"F");
+      const tx2=mg+i*tlW; const isA=mile.ano===m.ano; const mc=h2r(mile.cor);
+      if(isA){doc.setFillColor(...mc);}else{doc.setFillColor(236,236,240);}
+      doc.rect(tx2,y,tlW-1,18,"F");
       if(isA){doc.setTextColor(255,255,255);}else{doc.setTextColor(...mc);}
-      doc.setFont("helvetica","bold"); doc.setFontSize(7.5);
-      doc.text(String(mile.ano),tx2+tlW/2-0.5,y+8,{align:"center"});
-      doc.setFont("helvetica","normal"); doc.setFontSize(5.5);
+      sf("bold"); doc.setFontSize(7);
+      doc.text(String(mile.ano),tx2+tlW/2,y+7.5,{align:"center"});
+      sf("normal"); doc.setFontSize(5.5);
       if(isA){doc.setTextColor(255,255,255);}else{doc.setTextColor(...mc);}
-      doc.text(mile.total+"%",tx2+tlW/2-0.5,y+13,{align:"center"});
-      doc.setFontSize(5);
-      doc.text(mile.label,tx2+tlW/2-0.5,y+17.5,{align:"center"});
+      doc.text(mile.total+"%",tx2+tlW/2,y+12.5,{align:"center"});
+      doc.setFontSize(4.5); doc.text(mile.label,tx2+tlW/2,y+16.5,{align:"center"});
     });
-    y+=24;
+    y+=22;
 
-    // ── CRÉDITOS DO SEU MIX ──
-    doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(...GR);
-    doc.text("COMPOSI\u00c7\u00c3O DOS CR\u00c9DITOS CBS \u2014 SEU MIX DE FORNECEDORES",mg,y+5);
+    // ── COMPOSIÇÃO DOS CRÉDITOS ──
+    sf("bold"); doc.setFontSize(6.5); doc.setTextColor(...GR);
+    doc.text("COMPOSI\u00c7\u00c3O DOS CR\u00c9DITOS CBS \u2014 MIX DE FORNECEDORES",mg,y+5);
     doc.setDrawColor(...BD); doc.setLineWidth(0.15); doc.line(mg,y+7,W-mg,y+7);
     y+=10;
-    const credRows=[
-      {label:"PF \u00b7 Aut\u00f4nomo",pct:mixAutonomo,val:cbsCrPF_,rate:"1,86%",base:BRL(bPF_),cor:[180,83,9]},
-      {label:"PJSN \u00b7 Simples Nacional",pct:mixSN,val:cbsCrSN_,rate:CBS_CRED.simplesNacional+"%",base:BRL(bSN_cbs),cor:[29,91,215]},
-      {label:"PJN \u00b7 LP/LR",pct:mixLucro,val:cbsCrPJN_,rate:lucroRateTerceiros+"%",base:BRL(bPJN_cbs),cor:[22,163,74]},
-    ];
-    const rH=13;
-    credRows.forEach((row,i)=>{
-      const ry=y+i*rH;
+    [{label:"PF \u00b7 Aut\u00f4nomo",pct:mixAutonomo,val:cbsCrPF_,rate:"1,86%",base:BRL(bPF_),cor:[180,83,9]},
+     {label:"PJSN \u00b7 Simples Nacional",pct:mixSN,val:cbsCrSN_,rate:CBS_CRED.simplesNacional+"%",base:BRL(bSN_cbs),cor:[29,91,215]},
+     {label:"PJN \u00b7 LP/LR",pct:mixLucro,val:cbsCrPJN_,rate:lucroRateTerceiros+"%",base:BRL(bPJN_cbs),cor:[22,163,74]},
+    ].forEach((row,i)=>{
+      const ry=y+i*11;
       doc.setFillColor(i%2===0?247:255,i%2===0?247:255,i%2===0?250:255);
-      doc.rect(mg,ry,cw,rH,"F");
-      doc.setFillColor(...row.cor); doc.rect(mg,ry,3,rH,"F");
-      doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(...DK);
-      doc.text(row.label,mg+6,ry+5.5);
-      doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(...GR);
-      doc.text("Participa\u00e7\u00e3o: "+row.pct+"%  \u00b7  Taxa CBS: "+row.rate+"  \u00b7  Base: "+row.base,mg+6,ry+10);
-      doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(...row.cor);
-      doc.text(BRL(row.val),mg+cw-2,ry+7,{align:"right"});
+      doc.rect(mg,ry,cw,11,"F");
+      doc.setFillColor(...row.cor); doc.rect(mg,ry,3,11,"F");
+      sf("bold"); doc.setFontSize(7); doc.setTextColor(...DK);
+      doc.text(row.label,mg+6,ry+4.5);
+      sf("normal"); doc.setFontSize(5.8); doc.setTextColor(...GR);
+      doc.text("Part.: "+row.pct+"%  \u00b7  Taxa CBS: "+row.rate+"  \u00b7  Base: "+row.base,mg+6,ry+8.5);
+      sf("bold"); doc.setFontSize(8.5); doc.setTextColor(...row.cor);
+      doc.text(BRL(row.val),mg+cw-2,ry+6,{align:"right"});
     });
-    y+=credRows.length*rH;
-    doc.setFillColor(240,253,244); doc.rect(mg,y,cw,11,"F");
-    doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(...GN);
-    doc.text("Total cr\u00e9ditos CBS"+(m.ibs>0?" + IBS":""),mg+4,y+7);
-    doc.setFontSize(10); doc.text(BRL(cbsCrTot_+ibsCrTot_),mg+cw-2,y+7.5,{align:"right"});
-    y+=15;
+    y+=33;
+    doc.setFillColor(240,253,244); doc.rect(mg,y,cw,10,"F");
+    sf("bold"); doc.setFontSize(7); doc.setTextColor(...GN);
+    doc.text("Total cr\u00e9ditos CBS"+(m.ibs>0?" + IBS":""),mg+4,y+6.5);
+    doc.setFontSize(9); doc.text(BRL(cbsCrTot_+ibsCrTot_),mg+cw-2,y+6.5,{align:"right"});
+    y+=13;
 
     // Disclaimer p1
-    doc.setDrawColor(...BD); doc.setLineWidth(0.25); doc.line(mg,y,W-mg,y); y+=4;
-    doc.setFont("helvetica","italic"); doc.setFontSize(6.5); doc.setTextColor(...LG);
-    doc.text("Valores estimados com base nos par\u00e2metros informados e nas al\u00edquotas previstas na LC 214/2025. N\u00e3o substitui consultoria tribut\u00e1ria especializada.",mg,y+3);
-    doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(...LG);
+    doc.setDrawColor(...BD); doc.setLineWidth(0.2); doc.line(mg,y,W-mg,y); y+=4;
+    sf("normal"); doc.setFontSize(6); doc.setTextColor(...LG);
+    doc.text("Valores estimados. N\u00e3o substitui consultoria tribut\u00e1ria. Al\u00edquotas conforme LC\u00a0214/2025.",mg,y+3);
     doc.text("P\u00e1gina 1 de 2",W-mg,y+3,{align:"right"});
 
-    // ══════════════════════════════════════════════
-    // PÁGINA 2 — DETALHAMENTO TÉCNICO
-    // ══════════════════════════════════════════════
+    // ══════════════════════════════════════════════════════
+    // PÁGINA 2 — CONTEXTO + DETALHAMENTO TÉCNICO
+    // ══════════════════════════════════════════════════════
     doc.addPage(); frame();
 
     if(logoData) doc.addImage(logoData,"PNG",mg,6,14,14);
-    doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(...DK);
+    sf("bold"); doc.setFontSize(11); doc.setTextColor(...DK);
     doc.text("Detalhamento dos C\u00e1lculos",mg+18,13);
-    doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...GR);
+    sf("normal"); doc.setFontSize(7); doc.setTextColor(...GR);
     doc.text("Como chegamos nos n\u00fameros do diagn\u00f3stico \u2014 "+m.ano+" \u00b7 "+m.label,mg+18,18.5);
     doc.setDrawColor(...BD); doc.setLineWidth(0.3); doc.line(mg,22,W-mg,22);
     y=26;
 
+    // Contexto
+    sf("bold"); doc.setFontSize(6.5); doc.setTextColor(...GR);
+    doc.text("O QUE EST\u00c1 ACONTECENDO",mg,y+5);
+    doc.setDrawColor(...BD); doc.setLineWidth(0.15); doc.line(mg,y+7,W-mg,y+7);
+    y+=10;
+    const ctx1=doc.splitTextToSize("A Reforma Tribut\u00e1ria (LC\u00a0214/2025) extingue PIS e COFINS em 2027, substituindo-os pela CBS (9,3%). A partir de 2029 o IBS entra progressivamente, chegando a 18,7% em 2033 \u2014 totalizando 28% de IVA Dual nominal.",cw-10);
+    const ctx2=doc.splitTextToSize("Para o TRC, a principal mudan\u00e7a \u00e9 o cr\u00e9dito n\u00e3o-cumulativo: pagamentos a prestadores PJN geram cr\u00e9dito CBS de 9,3%. Aut\u00f4nomos (PF) geram 1,86% \u2014 o mix de fornecedores define o impacto real na sua opera\u00e7\u00e3o.",cw-10);
+    const ctxH=4+(ctx1.length+ctx2.length+1)*5+4;
+    doc.setFillColor(...BG); doc.rect(mg,y,cw,ctxH,"F");
+    doc.setFillColor(...OR); doc.rect(mg,y,3,ctxH,"F");
+    sf("normal"); doc.setFontSize(7.5); doc.setTextColor(...GR);
+    ctx1.forEach((l,i)=>doc.text(l,mg+6,y+7+i*5));
+    sf("bold"); doc.setFontSize(7.5); doc.setTextColor(...DK);
+    ctx2.forEach((l,i)=>doc.text(l,mg+6,y+7+ctx1.length*5+3+i*5));
+    y+=ctxH+6;
+
+    // Duas colunas
     const gap=5,colW=(cw-gap)/2;
     const xL=mg,xR=mg+colW+gap;
     let yL=y,yR=y;
 
     const debRow=(x,label,val,opts,yRef)=>{
-      doc.setFont("helvetica",opts.bold?"bold":"normal");
-      doc.setFontSize(7.5); doc.setTextColor(...(opts.dim?LG:opts.green?GN:DK));
+      sf(opts.bold?"bold":"normal");
+      doc.setFontSize(7); doc.setTextColor(...(opts.dim?LG:opts.green?GN:DK));
       doc.text(label,x+3,yRef[0]+4.5);
-      doc.setFont("helvetica","bold"); doc.setTextColor(...(opts.green?GN:opts.red?RD:opts.bold?DK:GR));
+      sf("bold"); doc.setTextColor(...(opts.green?GN:opts.red?RD:opts.bold?DK:GR));
       doc.text(val,x+colW-2,yRef[0]+4.5,{align:"right"});
-      doc.setDrawColor(...BD); doc.setLineWidth(0.2);
+      doc.setDrawColor(...BD); doc.setLineWidth(0.15);
       doc.line(x+2,yRef[0]+6,x+colW-2,yRef[0]+6);
       yRef[0]+=7;
     };
 
     const credCard=(x,label,pct,val,formula,acc,yRef)=>{
-      doc.setFillColor(...BG); doc.rect(x,yRef[0],colW,13,"F");
-      doc.setFillColor(...acc); doc.rect(x,yRef[0],2.5,13,"F");
-      doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(...DK);
-      doc.text(label+" "+pct+"%",x+5,yRef[0]+5.5);
-      doc.setFontSize(10); doc.setTextColor(...GN);
+      const ch=13;
+      doc.setFillColor(...BG); doc.rect(x,yRef[0],colW,ch,"F");
+      doc.setFillColor(...acc); doc.rect(x,yRef[0],2.5,ch,"F");
+      sf("bold"); doc.setFontSize(7); doc.setTextColor(...DK);
+      doc.text(label+" "+pct+"%",x+5,yRef[0]+5);
+      doc.setFontSize(9.5); doc.setTextColor(...GN);
       doc.text(BRL(val),x+colW-2,yRef[0]+6,{align:"right"});
-      doc.setFont("helvetica","normal"); doc.setFontSize(5.8); doc.setTextColor(...LG);
-      doc.text(formula,x+5,yRef[0]+10.5);
-      yRef[0]+=14;
+      sf("normal"); doc.setFontSize(5.5); doc.setTextColor(...LG);
+      doc.text(formula,x+5,yRef[0]+10);
+      yRef[0]+=ch+1;
     };
 
-    // ─── ESQUERDA: PIS/COFINS ───
+    // Esquerda: PIS/COFINS
     doc.setDrawColor(...DK); doc.setLineWidth(0.3); doc.line(xL,yL,xL+colW,yL);
-    doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.setTextColor(...DK);
-    doc.text("PIS / COFINS",xL+2,yL+8);
-    doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(...GR);
-    doc.text("Al\u00edquota "+aliqPIS+"%  \u00b7  "+regime,xL+2,yL+13);
-    doc.setDrawColor(...BD); doc.setLineWidth(0.2); doc.line(xL,yL+15,xL+colW,yL+15);
-    yL+=18;
-    doc.setFont("helvetica","bold"); doc.setFontSize(6); doc.setTextColor(...LG);
-    doc.text("D\u00c9BITO",xL+2,yL+4); yL+=7;
+    sf("bold"); doc.setFontSize(11); doc.setTextColor(...DK);
+    doc.text("PIS / COFINS",xL+2,yL+7.5);
+    sf("normal"); doc.setFontSize(6.5); doc.setTextColor(...GR);
+    doc.text("Al\u00edquota "+aliqPIS+"%  \u00b7  "+regime,xL+2,yL+12.5);
+    doc.setDrawColor(...BD); doc.setLineWidth(0.2); doc.line(xL,yL+14.5,xL+colW,yL+14.5);
+    yL+=17;
+    sf("bold"); doc.setFontSize(5.5); doc.setTextColor(...LG);
+    doc.text("D\u00c9BITO",xL+2,yL+3.5); yL+=6;
     const yLa=[yL];
     debRow(xL,"Faturamento bruto",BRL(frete),{dim:true},yLa);
     if(pctExportacao>0) debRow(xL,"(-) Exporta\u00e7\u00e3o "+pctExportacao+"%","("+BRL(frete*pctExportacao/100)+")",{green:true},yLa);
     debRow(xL,"Base tribut\u00e1vel",BRL(baseExec),{bold:true},yLa);
-    debRow(xL,"\u00d7 Al\u00edquota "+aliqPIS+"%","\u2193",{dim:true},yLa);
+    debRow(xL,"\u00d7 Al\u00edquota PIS/COFINS "+aliqPIS+"%","\u2193",{dim:true},yLa);
     yL=yLa[0];
     doc.setFillColor(255,241,241); doc.rect(xL,yL,colW,11,"F");
     doc.setFillColor(...RD); doc.rect(xL,yL,3,11,"F");
-    doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(...RD);
-    doc.text("D\u00c9BITO PIS/COFINS",xL+6,yL+5.5);
-    doc.setFontSize(11); doc.text(BRL(pisDeb_),xL+colW-2,yL+8,{align:"right"});
-    yL+=14;
-    doc.setFont("helvetica","bold"); doc.setFontSize(6); doc.setTextColor(...LG);
-    doc.text("CR\u00c9DITOS",xL+2,yL+4);
-    doc.setFont("helvetica","normal"); doc.setFontSize(6);
-    doc.text("base: "+BRL(baseTerN),xL+colW-2,yL+4,{align:"right"});
-    yL+=8;
+    sf("bold"); doc.setFontSize(6.5); doc.setTextColor(...RD);
+    doc.text("D\u00c9BITO PIS/COFINS",xL+6,yL+5);
+    doc.setFontSize(10); doc.text(BRL(pisDeb_),xL+colW-2,yL+8,{align:"right"});
+    yL+=13;
+    sf("bold"); doc.setFontSize(5.5); doc.setTextColor(...LG);
+    doc.text("CR\u00c9DITOS",xL+2,yL+3.5);
+    sf("normal"); doc.setFontSize(5.5); doc.setTextColor(...LG);
+    doc.text("base: "+BRL(baseTerN),xL+colW-2,yL+3.5,{align:"right"});
+    yL+=7;
     const yLb=[yL];
     credCard(xL,"PF \u00b7 Aut\u00f4nomo",mixAutonomo,pisCrPF_,
-      BRL(bPF_)+" \u00d7 75% = "+BRL(bPF_*0.75)+" \u2192 \u00d7 "+aliqPIS+"%",[180,83,9],yLb);
+      BRL(bPF_)+" \u00d7 75% \u2192 \u00d7 "+aliqPIS+"%",[180,83,9],yLb);
     credCard(xL,"PJSN \u00b7 Simples Nacional",mixSN,pisCrSN_,
-      BRL(bSN_)+" \u00d7 75% = "+BRL(bSN_*0.75)+" \u2192 \u00d7 "+aliqPIS+"%",[29,91,215],yLb);
+      BRL(bSN_)+" \u00d7 75% \u2192 \u00d7 "+aliqPIS+"%",[29,91,215],yLb);
     credCard(xL,"PJN \u00b7 LP/LR",mixLucro,pisCrPJN_,
       BRL(bPJN_)+" \u00d7 100% \u2192 \u00d7 "+aliqPIS+"%",[22,163,74],yLb);
     yL=yLb[0];
     doc.setFillColor(240,253,244); doc.rect(xL,yL,colW,11,"F");
-    doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(...GN);
-    doc.text("Total cr\u00e9ditos",xL+3,yL+6.5);
-    doc.setFontSize(11); doc.text(BRL(pisCrTot_),xL+colW-2,yL+7.5,{align:"right"});
-    yL+=14;
+    sf("bold"); doc.setFontSize(6.5); doc.setTextColor(...GN);
+    doc.text("Total cr\u00e9ditos PIS/COFINS",xL+3,yL+6);
+    doc.setFontSize(10); doc.text(BRL(pisCrTot_),xL+colW-2,yL+7,{align:"right"});
+    yL+=13;
     const pCr=pisCusto_<=0?GN:RD;
     doc.setFillColor(...(pisCusto_<=0?[240,253,244]:[255,241,241]));
-    doc.setDrawColor(...pCr); doc.setLineWidth(0.5); doc.rect(xL,yL,colW,19,"FD");
-    doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...GR);
-    doc.text("Cr\u00e9dito:  +"+BRL(pisCrTot_),xL+4,yL+6);
-    doc.text("D\u00e9bito:   -"+BRL(pisDeb_),xL+4,yL+11);
-    doc.setDrawColor(...pCr); doc.setLineWidth(0.3); doc.line(xL+3,yL+12.5,xL+colW-3,yL+12.5);
-    doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(...pCr);
-    doc.text("\u2192 "+(pisCusto_<=0?"CREDOR":"DEVEDOR"),xL+4,yL+17);
-    doc.setFontSize(13); doc.text(BRL(Math.abs(pisCusto_)),xL+colW-2,yL+17,{align:"right"});
+    doc.setDrawColor(...pCr); doc.setLineWidth(0.4); doc.rect(xL,yL,colW,20,"FD");
+    sf("normal"); doc.setFontSize(7); doc.setTextColor(...GR);
+    doc.text("Cr\u00e9dito  +"+BRL(pisCrTot_),xL+4,yL+7);
+    doc.text("D\u00e9bito  \u2212"+BRL(pisDeb_),xL+4,yL+12);
+    doc.setDrawColor(...pCr); doc.setLineWidth(0.25); doc.line(xL+3,yL+13.5,xL+colW-3,yL+13.5);
+    sf("bold"); doc.setFontSize(7); doc.setTextColor(...pCr);
+    doc.text("\u2192 "+(pisCusto_<=0?"CREDOR":"DEVEDOR"),xL+4,yL+18);
+    doc.setFontSize(11); doc.text(BRL(Math.abs(pisCusto_)),xL+colW-2,yL+18,{align:"right"});
     yL+=23;
 
-    // ─── DIREITA: CBS + IBS ───
+    // Direita: CBS + IBS
     doc.setDrawColor(...mCor); doc.setLineWidth(0.3); doc.line(xR,yR,xR+colW,yR);
-    doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.setTextColor(...mCor);
-    doc.text("CBS "+m.cbs+"%"+(m.ibs>0?" + IBS "+m.ibs+"%":""),xR+2,yR+8);
-    doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(...GR);
-    doc.text("Total: "+m.total+"%  \u00b7  "+m.ano+" \u2014 "+m.label,xR+2,yR+13);
-    doc.setDrawColor(...BD); doc.setLineWidth(0.2); doc.line(xR,yR+15,xR+colW,yR+15);
-    yR+=18;
-    doc.setFont("helvetica","bold"); doc.setFontSize(6); doc.setTextColor(...LG);
-    doc.text("D\u00c9BITO",xR+2,yR+4); yR+=7;
+    sf("bold"); doc.setFontSize(11); doc.setTextColor(...mCor);
+    doc.text("CBS "+m.cbs+"%"+(m.ibs>0?" + IBS "+m.ibs+"%":""),xR+2,yR+7.5);
+    sf("normal"); doc.setFontSize(6.5); doc.setTextColor(...GR);
+    doc.text("Total "+m.total+"%  \u00b7  "+m.ano+" \u2014 "+m.label,xR+2,yR+12.5);
+    doc.setDrawColor(...BD); doc.setLineWidth(0.2); doc.line(xR,yR+14.5,xR+colW,yR+14.5);
+    yR+=17;
+    sf("bold"); doc.setFontSize(5.5); doc.setTextColor(...LG);
+    doc.text("D\u00c9BITO",xR+2,yR+3.5); yR+=6;
     const yRa=[yR];
     debRow(xR,"Faturamento bruto",BRL(frete),{dim:true},yRa);
     if(pctExportacao>0) debRow(xR,"(-) Exporta\u00e7\u00e3o "+pctExportacao+"%","("+BRL(frete*pctExportacao/100)+")",{green:true},yRa);
@@ -1255,15 +1336,15 @@ function Oracle(){
     yR=yRa[0];
     doc.setFillColor(255,241,241); doc.rect(xR,yR,colW,11,"F");
     doc.setFillColor(...RD); doc.rect(xR,yR,3,11,"F");
-    doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(...RD);
-    doc.text("D\u00c9BITO "+(m.ibs>0?"CBS + IBS":"CBS"),xR+6,yR+5.5);
-    doc.setFontSize(11); doc.text(BRL(cbsDeb_+ibsDeb_),xR+colW-2,yR+8,{align:"right"});
-    yR+=14;
-    doc.setFont("helvetica","bold"); doc.setFontSize(6); doc.setTextColor(...LG);
-    doc.text("CR\u00c9DITOS CBS"+(m.ibs>0?" + IBS":""),xR+2,yR+4);
-    doc.setFont("helvetica","normal"); doc.setFontSize(5.5); doc.setTextColor(...LG);
-    doc.text("PF: "+BRL(baseTerN)+"  \u00b7  SN/PJN: "+BRL(baseTerTax),xR+colW-2,yR+4,{align:"right"});
-    yR+=8;
+    sf("bold"); doc.setFontSize(6.5); doc.setTextColor(...RD);
+    doc.text("D\u00c9BITO "+(m.ibs>0?"CBS + IBS":"CBS"),xR+6,yR+5);
+    doc.setFontSize(10); doc.text(BRL(cbsDeb_+ibsDeb_),xR+colW-2,yR+8,{align:"right"});
+    yR+=13;
+    sf("bold"); doc.setFontSize(5.5); doc.setTextColor(...LG);
+    doc.text("CR\u00c9DITOS CBS"+(m.ibs>0?" + IBS":""),xR+2,yR+3.5);
+    sf("normal"); doc.setFontSize(5.5); doc.setTextColor(...LG);
+    doc.text("SN/PJN: base "+BRL(baseTerTax),xR+colW-2,yR+3.5,{align:"right"});
+    yR+=7;
     const yRb=[yR];
     credCard(xR,"PF \u00b7 Aut\u00f4nomo",mixAutonomo,cbsCrPF_,
       BRL(bPF_)+" \u00d7 20% = "+BRL(bPF_*0.2)+" \u2192 \u00d7 "+m.cbs+"%",[180,83,9],yRb);
@@ -1272,41 +1353,39 @@ function Oracle(){
     credCard(xR,"PJN \u00b7 "+(regimeLucroTerceiros==="Lucro Real"?"LR":"LP"),mixLucro,cbsCrPJN_,
       BRL(bPJN_cbs)+" \u00d7 "+lucroRateTerceiros+"%",[22,163,74],yRb);
     if(m.ibs>0){
-      doc.setFillColor(...BG); doc.rect(xR,yRb[0],colW,10,"F");
-      doc.setFillColor(147,51,234); doc.rect(xR,yRb[0],2.5,10,"F");
-      doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...DK);
+      doc.setFillColor(...BG); doc.rect(xR,yRb[0],colW,13,"F");
+      doc.setFillColor(147,51,234); doc.rect(xR,yRb[0],2.5,13,"F");
+      sf("normal"); doc.setFontSize(7); doc.setTextColor(...DK);
       doc.text("Cr\u00e9ditos IBS "+m.ibs+"%",xR+5,yRb[0]+5.5);
-      doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(147,51,234);
-      doc.text(BRL(ibsCrTot_),xR+colW-2,yRb[0]+6,{align:"right"});
-      yRb[0]+=12;
+      sf("bold"); doc.setFontSize(9.5); doc.setTextColor(147,51,234);
+      doc.text(BRL(ibsCrTot_),xR+colW-2,yRb[0]+7,{align:"right"});
+      yRb[0]+=15;
     }
     yR=yRb[0];
     doc.setFillColor(240,253,244); doc.rect(xR,yR,colW,11,"F");
-    doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(...GN);
-    doc.text("Total cr\u00e9ditos",xR+3,yR+6.5);
-    doc.setFontSize(11); doc.text(BRL(cbsCrTot_+ibsCrTot_),xR+colW-2,yR+7.5,{align:"right"});
-    yR+=14;
+    sf("bold"); doc.setFontSize(6.5); doc.setTextColor(...GN);
+    doc.text("Total cr\u00e9ditos CBS"+(m.ibs>0?" + IBS":""),xR+3,yR+6);
+    doc.setFontSize(10); doc.text(BRL(cbsCrTot_+ibsCrTot_),xR+colW-2,yR+7,{align:"right"});
+    yR+=13;
     const cCr=cbsCusto_<=0?GN:RD;
     doc.setFillColor(...(cbsCusto_<=0?[240,253,244]:[255,241,241]));
-    doc.setDrawColor(...cCr); doc.setLineWidth(0.5); doc.rect(xR,yR,colW,19,"FD");
-    doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...GR);
-    doc.text("Cr\u00e9ditos: +"+BRL(cbsCrTot_+ibsCrTot_),xR+4,yR+6);
-    doc.text("D\u00e9bito:   -"+BRL(cbsDeb_+ibsDeb_),xR+4,yR+11);
-    doc.setDrawColor(...cCr); doc.setLineWidth(0.3); doc.line(xR+3,yR+12.5,xR+colW-3,yR+12.5);
-    doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(...cCr);
-    doc.text("\u2192 "+(cbsCusto_<=0?"CREDOR":"CBS A PAGAR"),xR+4,yR+17);
-    doc.setFontSize(13); doc.text(BRL(Math.abs(cbsCusto_)),xR+colW-2,yR+17,{align:"right"});
+    doc.setDrawColor(...cCr); doc.setLineWidth(0.4); doc.rect(xR,yR,colW,20,"FD");
+    sf("normal"); doc.setFontSize(7); doc.setTextColor(...GR);
+    doc.text("Cr\u00e9ditos  +"+BRL(cbsCrTot_+ibsCrTot_),xR+4,yR+7);
+    doc.text("D\u00e9bito  \u2212"+BRL(cbsDeb_+ibsDeb_),xR+4,yR+12);
+    doc.setDrawColor(...cCr); doc.setLineWidth(0.25); doc.line(xR+3,yR+13.5,xR+colW-3,yR+13.5);
+    sf("bold"); doc.setFontSize(7); doc.setTextColor(...cCr);
+    doc.text("\u2192 "+(cbsCusto_<=0?"CREDOR":"CBS A PAGAR"),xR+4,yR+18);
+    doc.setFontSize(11); doc.text(BRL(Math.abs(cbsCusto_)),xR+colW-2,yR+18,{align:"right"});
     yR+=23;
 
-    // ── DISCLAIMER p2 ──
-    y=Math.max(yL,yR)+6;
-    if(y>270){y=270;}
-    doc.setDrawColor(...BD); doc.setLineWidth(0.25); doc.line(mg,y,W-mg,y); y+=5;
-    doc.setFont("helvetica","italic"); doc.setFontSize(6.5); doc.setTextColor(...LG);
-    doc.splitTextToSize("Este documento \u00e9 de car\u00e1ter informativo e n\u00e3o substitui uma consulta tribut\u00e1ria especializada. Os valores s\u00e3o estimativas baseadas nos par\u00e2metros informados e nas al\u00edquotas previstas na LC 214/2025.",cw)
-      .forEach(l=>{doc.text(l,mg,y);y+=3.8;});
-    doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(...LG);
-    doc.text("P\u00e1gina 2 de 2",W-mg,y+2,{align:"right"});
+    // Disclaimer p2
+    y=Math.min(Math.max(yL,yR)+6,272);
+    doc.setDrawColor(...BD); doc.setLineWidth(0.2); doc.line(mg,y,W-mg,y); y+=4;
+    sf("normal"); doc.setFontSize(6); doc.setTextColor(...LG);
+    doc.splitTextToSize("Este documento \u00e9 de car\u00e1ter informativo e n\u00e3o substitui consultoria tribut\u00e1ria. Os valores s\u00e3o estimativas baseadas nos par\u00e2metros informados e nas al\u00edquotas previstas na LC\u00a0214/2025.",cw)
+      .forEach(l=>{doc.text(l,mg,y);y+=4;});
+    doc.text("P\u00e1gina 2 de 2",W-mg,y,{align:"right"});
 
     doc.save("RumoBrasil_Diagnostico_Tributario_"+m.ano+"_"+new Date().toISOString().slice(0,10)+".pdf");
   };
