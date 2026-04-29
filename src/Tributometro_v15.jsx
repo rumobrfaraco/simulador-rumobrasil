@@ -1685,6 +1685,8 @@ function Oracle(){
           {(()=>{
             const diff=cbsCusto_-pisCusto_;
             const corD=diff>0?C.red:C.green;
+            const pctBase=Math.abs(pisCusto_)>0?Math.abs(pisCusto_):Math.abs(pisDeb_);
+            const pct=pctBase>0&&diff!==0?Math.round(Math.abs(diff/pctBase)*100):null;
             return(
               <div style={{padding:"14px 16px",background:C.bg2,border:"1px solid "+C.border,borderRadius:3}}>
                 <div style={{fontFamily:F.sans,fontSize:9,color:C.text3,textTransform:"uppercase",letterSpacing:0.6,marginBottom:10}}>Comparativo — Hoje vs Reforma</div>
@@ -1702,7 +1704,10 @@ function Oracle(){
                 </div>
                 <div style={{padding:"12px 14px",background:corD+"18",border:"1px solid "+corD+"44",borderRadius:3,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                   <span style={{fontFamily:F.sans,fontSize:11,color:corD,fontWeight:600}}>{diff>0?"▲ Custo adicional":"▼ Economia"} vs hoje</span>
-                  <span style={{fontFamily:F.mono,fontSize:isMob?18:16,color:corD,fontWeight:800}}>{(diff>0?"+":"")+BRL_(diff)}</span>
+                  <span style={{display:"flex",alignItems:"baseline",gap:6}}>
+                    <span style={{fontFamily:F.mono,fontSize:isMob?18:16,color:corD,fontWeight:800}}>{(diff>0?"+":"")+BRL_(diff)}</span>
+                    {pct!=null&&<span style={{fontFamily:F.mono,fontSize:12,color:corD,fontWeight:600,opacity:0.85}}>({(diff>0?"+":"-")+pct+"%"})</span>}
+                  </span>
                 </div>
               </div>
             );
